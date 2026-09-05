@@ -13,8 +13,12 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import heroAsset from "../assets/faith-hero.jpg.asset.json";
-import aboutAsset from "../assets/faith-about.jpg.asset.json";
+const heroAsset = {
+  url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/channels4_profile-hcyvINGNgSvvHYQRzwyX2wxZXLHErM.jpg",
+};
+const aboutAsset = {
+  url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/A%20little%20introduction%20is%20probably%20long%20overdue%20%F0%9F%8C%B7%20so%20hi%2C%20I%E2%80%99m%20Faith%F0%9F%92%97If%20you%E2%80%99re%20new%20here%2C%20i%E2%80%99m%20happ-Npc67YE18XDQpypAyIqjFkMHP3fG9X.jpg",
+};
 import hairVlogAsset from "../assets/hair-vlog.mp4.asset.json";
 import morningRoutineAsset from "../assets/morning-routine.mp4.asset.json";
 import dayInMyLifeAsset from "../assets/day-in-my-life.mp4.asset.json";
