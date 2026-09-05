@@ -42,6 +42,13 @@ export const Route = createFileRoute("/")({
 const EMAIL = "mailto:faithekuase1@gmail.com";
 const MEDIA_KIT = "mailto:faithekuase1@gmail.com?subject=Media%20Kit%20Request&body=Hi%20Faith%2C%0A%0AI'd%20love%20to%20request%20your%20latest%20media%20kit.%0A";
 const WHATSAPP = "https://wa.me/2347055082561";
+const footerLinks: Array<[string, string]> = [
+  ["YouTube", "https://youtube.com/@faith-ekuase"],
+  ["Instagram", "https://www.instagram.com/faith_ekuase/"],
+  ["Pinterest", "https://www.pinterest.com/faithekuase1/"],
+  ["Email", EMAIL],
+  ["WhatsApp", WHATSAPP],
+];
 
 const videos = [
   {
@@ -103,8 +110,8 @@ function Index() {
           <a className="nav-link" href="#vlogs">Vlogs</a><a className="nav-link" href="#collaborate">Collaborate</a>
           <a className="nav-link" href="#contact">Contact</a>
         </nav>
-        <a href="#contact" className="button-primary hidden md:inline-flex">Work with me <ArrowUpRight size={16} /></a>
-        <button className="icon-button md:hidden" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>
+        <a href="#contact" className="button-primary nav-cta">Work with me <ArrowUpRight size={16} /></a>
+        <button className="icon-button nav-menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>
           {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         {menuOpen && (
@@ -228,7 +235,7 @@ function Index() {
 
       <footer>
         <div><a href="#home" className="footer-brand">Faith Ekuase</a><p>YouTube vlogger · Storyteller · Creator</p><p>Life, through my lens.</p></div>
-        <nav aria-label="Footer navigation">{[["YouTube", "https://youtube.com/@faith-ekuase"], ["Instagram", "https://www.instagram.com/faith_ekuase/"], ["Pinterest", "https://www.pinterest.com/faithekuase1/"], ["Email", EMAIL], ["WhatsApp", WHATSAPP]].map(([label, href]) => <a key={label} href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined}>{label}</a>)}</nav>
+        <nav aria-label="Footer navigation">{footerLinks.map(([label, href]) => <a key={label} href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined}>{label}</a>)}</nav>
         <p className="copyright">© 2026 Faith Ekuase. All rights reserved.</p>
       </footer>
     </main>
