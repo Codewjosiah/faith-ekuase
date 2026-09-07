@@ -12,6 +12,7 @@ import {
   Youtube,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { supabase } from "../integrations/supabase/client";
 
 const heroAsset = {
   url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/channels4_profile-hcyvINGNgSvvHYQRzwyX2wxZXLHErM.jpg",
@@ -19,9 +20,6 @@ const heroAsset = {
 const aboutAsset = {
   url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/A%20little%20introduction%20is%20probably%20long%20overdue%20%F0%9F%8C%B7%20so%20hi%2C%20I%E2%80%99m%20Faith%F0%9F%92%97If%20you%E2%80%99re%20new%20here%2C%20i%E2%80%99m%20happ-Npc67YE18XDQpypAyIqjFkMHP3fG9X.jpg",
 };
-import hairVlogAsset from "../assets/hair-vlog.mp4.asset.json";
-import morningRoutineAsset from "../assets/morning-routine.mp4.asset.json";
-import dayInMyLifeAsset from "../assets/day-in-my-life.mp4.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -54,26 +52,7 @@ const footerLinks: Array<[string, string]> = [
   ["WhatsApp", WHATSAPP],
 ];
 
-const videos = [
-  {
-    src: hairVlogAsset.url,
-    title: "Hair Vlog",
-    category: "Beauty diary",
-    description: "A personal hair-day vlog, from the process to the finished braids.",
-  },
-  {
-    src: morningRoutineAsset.url,
-    title: "Productive Morning Routine",
-    category: "Daily life",
-    description: "A quiet look at the rhythms and little details of a productive morning.",
-  },
-  {
-    src: dayInMyLifeAsset.url,
-    title: "A Day in My Life",
-    category: "Experience",
-    description: "An outdoor summer gathering captured through Faith's personal perspective.",
-  },
-];
+type Vlog = { id: string; media_url: string; title: string; category: string; description: string; sort_order: number };
 
 function Reveal({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   return (
@@ -86,6 +65,8 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [videos, setVideos] = useState<Vlog[]>([]);
+  const [showAllVideos, setShowAllVideos] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 28);
@@ -103,7 +84,24 @@ function Index() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from("vlogs")
+      .select("id, media_url, title, category, description, sort_order")
+      .eq("is_visible", true)
+      .eq("is_featured", true)
+      .neq("media_url", "")
+      .order("sort_order", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) console.error("[v0] Failed to load published vlogs", error);
+        if (active && data) setVideos(data as Vlog[]);
+      });
+    return () => { active = false; };
+  }, []);
+
   const closeMenu = () => setMenuOpen(false);
+  const visibleVideos = showAllVideos ? videos : videos.slice(0, 4);
 
   return (
     <main className="overflow-x-clip bg-background text-foreground">
@@ -154,7 +152,7 @@ function Index() {
           <p>A collection of my favourite vlogs and creative projects. From everyday moments to new experiences, these videos are a glimpse into the stories I love capturing and sharing.</p>
         </Reveal>
         <div className="video-layout">
-          {videos.map((video, index) => (
+          {visibleVideos.map((video, index) => (
             <Reveal key={video.title} className={`video-card ${index === 0 ? "video-featured" : ""}`} delay={index * 90}>
               <div className="video-frame">
                 <video src={video.src} controls preload="metadata" playsInline aria-label={video.title} />
@@ -166,6 +164,7 @@ function Index() {
             </Reveal>
           ))}
         </div>
+        {videos.length > 4 && <button className="button-secondary mx-auto mt-10 flex" onClick={() => setShowAllVideos((value) => !value)}>{showAllVideos ? "Show less" : "See more vlogs"}</button>}
       </section>
 
       <section id="about" className="section about-section">
@@ -178,7 +177,7 @@ function Index() {
         <Reveal className="about-copy" delay={120}>
           <p className="eyebrow">Behind the camera</p><h2>The person behind the vlogs.</h2>
           <p className="lead">I’m Faith Ekuase.</p>
-          <p>A student of Physiotherapy at the University of Benin, a vlogger, and someone who enjoys finding stories in the everyday.</p>
+          <p>A Physiotherapy student, a vlogger, and someone who enjoys finding stories in the everyday.</p>
           <p>I love capturing experiences, sharing my perspective, and bringing people along for the moments that make life interesting. My faith is part of that journey too—quietly shaping the way I see things, the values I carry, and the gratitude I have for where I am.</p>
           <p>Between school, creating, and everything in between, I’m learning, growing, and discovering what I want to say through my videos.</p>
           <p className="closing-line">Still becoming. Still creating. Still grateful.</p>
