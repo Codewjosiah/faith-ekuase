@@ -155,11 +155,11 @@ function Index() {
           {visibleVideos.map((video, index) => (
             <Reveal key={video.title} className={`video-card ${index === 0 ? "video-featured" : ""}`} delay={index * 90}>
               <div className="video-frame">
-                <video src={video.src} controls preload="metadata" playsInline aria-label={video.title} />
+                <video src={video.media_url} controls preload="metadata" playsInline aria-label={video.title} />
               </div>
               <div className="video-info">
                 <div><p className="eyebrow">{video.category}</p><h3>{video.title}</h3><p>{video.description}</p></div>
-                <a href={video.src} target="_blank" rel="noreferrer" className="watch-link">Watch vlog <Play size={14} fill="currentColor" /></a>
+                <a href={video.media_url} target="_blank" rel="noreferrer" className="watch-link">Watch vlog <Play size={14} fill="currentColor" /></a>
               </div>
             </Reveal>
           ))}
