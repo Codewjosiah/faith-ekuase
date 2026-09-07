@@ -14,13 +14,169 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      media_assets: {
+        Row: {
+          alt_text: string
+          asset_key: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          alt_text?: string
+          asset_key: string
+          updated_at?: string
+          url?: string
+        }
+        Update: {
+          alt_text?: string
+          asset_key?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      section_settings: {
+        Row: {
+          is_visible: boolean
+          section_key: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          is_visible?: boolean
+          section_key: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          is_visible?: boolean
+          section_key?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_content: {
+        Row: {
+          content: Json
+          content_key: string
+          updated_at: string
+        }
+        Insert: {
+          content?: Json
+          content_key: string
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          content_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      social_links: {
+        Row: {
+          description: string
+          icon: string
+          id: string
+          is_visible: boolean
+          label: string
+          sort_order: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          description?: string
+          icon?: string
+          id?: string
+          is_visible?: boolean
+          label: string
+          sort_order?: number
+          updated_at?: string
+          url?: string
+        }
+        Update: {
+          description?: string
+          icon?: string
+          id?: string
+          is_visible?: boolean
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vlogs: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          id: string
+          is_featured: boolean
+          is_visible: boolean
+          media_url: string
+          sort_order: number
+          thumbnail_url: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_featured?: boolean
+          is_visible?: boolean
+          media_url?: string
+          sort_order?: number
+          thumbnail_url?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_featured?: boolean
+          is_visible?: boolean
+          media_url?: string
+          sort_order?: number
+          thumbnail_url?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_first_admin: { Args: { _user_id: string }; Returns: boolean }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
