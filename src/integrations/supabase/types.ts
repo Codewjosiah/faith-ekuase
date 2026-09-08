@@ -175,7 +175,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_initial_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
