@@ -63,179 +63,21 @@ function jsonObject(value: Json): Record<string, Json | undefined> {
 }
 
 function AdminPage() {
-  const bootstrapAdmin = useServerFn(bootstrapInitialAdmin);
-  const resolveMedia = useServerFn(resolveCmsMedia);
-  const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [authorized, setAuthorized] = useState(false);
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState<Tab>("overview");
-  const [mobileNav, setMobileNav] = useState(false);
-  const [vlogs, setVlogs] = useState<Vlog[]>([]);
-  const [links, setLinks] = useState<SocialLink[]>([]);
-  const [assets, setAssets] = useState<MediaAsset[]>([]);
-  const [assetPreviews, setAssetPreviews] = useState<Record<string, string>>({});
-  const [content, setContent] = useState<ContentMap>(EMPTY_CONTENT);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [vlogDraft, setVlogDraft] = useState<Partial<Vlog>>({});
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    setSession(sessionData.session);
-    setAuthReady(true);
-    if (!sessionData.session) { setAuthorized(false); return; }
-
-    const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", sessionData.session.user.id).eq("role", "admin").maybeSingle();
-    let isAdmin = role?.role === "admin";
-    if (!isAdmin) {
-      try {
-        const result = await bootstrapAdmin();
-        isAdmin = result.ok || result.reason === "already_claimed";
-      } catch {
-        isAdmin = false;
-      }
-    }
-    if (!isAdmin) {
-      setAuthorized(false);
-      setNotice("This account is not authorized to manage the website.");
-      return;
-    }
-    setAuthorized(true);
-
-    const [vlogResult, linkResult, contentResult, assetResult] = await Promise.all([
-      supabase.from("vlogs").select("*").order("sort_order"),
-      supabase.from("social_links").select("*").order("sort_order"),
-      supabase.from("site_content").select("*"),
-      supabase.from("media_assets").select("*").order("asset_key"),
-    ]);
-    const error = vlogResult.error ?? linkResult.error ?? contentResult.error ?? assetResult.error;
-    if (error) { setNotice(`Could not load content: ${error.message}`); return; }
-    setVlogs(vlogResult.data ?? []);
-    setLinks(linkResult.data ?? []);
-    setAssets(assetResult.data ?? []);
-    setContent(Object.fromEntries((contentResult.data ?? []).map((row) => [row.content_key, jsonObject(row.content)])));
-
-    const storedUrls = [...(assetResult.data ?? []).map((asset) => asset.url), ...(vlogResult.data ?? []).flatMap((vlog) => [vlog.media_url, vlog.thumbnail_url])];
-    const resolved = await resolveMedia({ data: { urls: storedUrls } });
-    setAssetPreviews(Object.fromEntries(storedUrls.map((url, index) => [url, resolved[index] ?? url])));
-  }, [bootstrapAdmin, resolveMedia]);
-
-  useEffect(() => {
-    void load();
-    const { data } = supabase.auth.onAuthStateChange(() => { window.setTimeout(() => void load(), 0); });
-    return () => data.subscription.unsubscribe();
-  }, [load]);
-
-  async function authenticate(event: React.FormEvent) {
-    event.preventDefault();
-    setAuthError("");
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail.includes("@")) { setAuthError("Enter a valid email address."); return; }
-    if (Array.from(password).length < 8) { setAuthError("Use at least 8 characters for your password."); return; }
-    const result = mode === "login"
-      ? await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
-      : await supabase.auth.signUp({ email: normalizedEmail, password, options: { emailRedirectTo: `${window.location.origin}/admin` } });
-    if (result.error) { setAuthError(result.error.message); return; }
-    if (!result.data.session) { setMode("login"); setNotice("Account created. Confirm your email, then sign in."); return; }
-    await load();
-  }
-
-  async function saveContent(key: string, values: Record<string, Json | undefined>) {
-    setLoading(true);
-    const { error } = await supabase.from("site_content").upsert({ content_key: key, content: values as Json });
-    setLoading(false);
-    setNotice(error ? `Could not save changes: ${error.message}` : "Changes saved and published.");
-    if (!error) await load();
-  }
-
-  async function addVlog() {
-    const { data, error } = await supabase.from("vlogs").insert({ title: `Video ${vlogs.length + 1}`, category: "Vlog", description: "", sort_order: vlogs.length + 1, is_visible: false }).select().single();
-    if (error) { setNotice(`Could not add vlog: ${error.message}`); return; }
-    setVlogs([...vlogs, data]); setEditing(data.id); setVlogDraft(data); setTab("vlogs");
-  }
-
-  async function saveVlog() {
-    if (!editing) return;
-    const payload = {
-      title: vlogDraft.title?.trim() || "Untitled vlog",
-      category: vlogDraft.category?.trim() || "Vlog",
-      description: vlogDraft.description ?? "",
-      media_url: vlogDraft.media_url ?? "",
-      thumbnail_url: vlogDraft.thumbnail_url ?? "",
-      is_featured: Boolean(vlogDraft.is_featured),
-      is_visible: Boolean(vlogDraft.is_visible && vlogDraft.media_url),
-    };
-    setLoading(true);
-    const { error } = await supabase.from("vlogs").update(payload).eq("id", editing);
-    setLoading(false);
-    setNotice(error ? `Could not save vlog: ${error.message}` : "Vlog saved and published.");
-    if (!error) { setEditing(null); await load(); }
-  }
-
-  async function removeVlog(id: string) {
-    if (!window.confirm("Permanently delete this vlog?")) return;
-    const { error } = await supabase.from("vlogs").delete().eq("id", id);
-    setNotice(error ? `Could not delete vlog: ${error.message}` : "Vlog deleted.");
-    if (!error) await load();
-  }
-
-  async function moveVlog(index: number, direction: number) {
-    const nextIndex = index + direction;
-    const current = vlogs[index]; const target = vlogs[nextIndex];
-    if (!current || !target) return;
-    const [a, b] = await Promise.all([
-      supabase.from("vlogs").update({ sort_order: target.sort_order }).eq("id", current.id),
-      supabase.from("vlogs").update({ sort_order: current.sort_order }).eq("id", target.id),
-    ]);
-    setNotice(a.error || b.error ? "Could not reorder vlogs." : "Vlog order updated.");
-    await load();
-  }
-
-  async function uploadFile(file: File, target: { kind: "vlog"; id: string; field: "media_url" | "thumbnail_url" } | { kind: "asset"; key: string }) {
-    const isVideo = target.kind === "vlog" && target.field === "media_url";
-    if (isVideo ? !file.type.startsWith("video/") : !file.type.startsWith("image/")) { setNotice(`Choose ${isVideo ? "a video" : "an image"} file.`); return; }
-    setNotice("Uploading…");
-    const folder = isVideo ? "videos" : "images";
-    const path = `${folder}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "-")}`;
-    const { error: uploadError } = await supabase.storage.from("cms-media").upload(path, file, { contentType: file.type });
-    if (uploadError) { setNotice(`Upload failed: ${uploadError.message}`); return; }
-    const storedUrl = `storage://cms-media/${path}`;
-    const result = target.kind === "vlog"
-      ? await supabase.from("vlogs").update({ [target.field]: storedUrl }).eq("id", target.id)
-      : await supabase.from("media_assets").update({ url: storedUrl }).eq("asset_key", target.key);
-    setNotice(result.error ? `Could not attach upload: ${result.error.message}` : "Upload complete and published.");
-    if (!result.error) await load();
-  }
-
-  if (!authReady) return <div className="admin-loading"><div className="admin-spinner" />Loading workspace</div>;
-  if (!session) return <AuthScreen mode={mode} setMode={setMode} email={email} setEmail={setEmail} password={password} setPassword={setPassword} showPassword={showPassword} setShowPassword={setShowPassword} error={authError} notice={notice} authenticate={authenticate} />;
-  if (!authorized) return <main className="auth-screen"><div className="auth-panel"><div className="admin-mark"><ShieldCheck size={18} /> FE / CMS</div><h1>Access restricted.</h1><p className="auth-sub">This signed-in account is not an administrator for Faith’s website.</p>{notice && <p className="admin-error">{notice}</p>}<button className="admin-submit" onClick={async () => { await supabase.auth.signOut(); setSession(null); }}>Sign out</button></div></main>;
-
-  const nav: [Tab, string, ReactNode][] = [
-    ["overview", "Overview", <LayoutDashboard size={16} />], ["profile", "Profile & content", <UserRound size={16} />],
-    ["vlogs", "Vlogs & videos", <Film size={16} />], ["links", "Social links", <Link2 size={16} />],
-    ["media", "Images", <Image size={16} />], ["settings", "Settings", <Settings size={16} />],
-  ];
-
-  return <div className="cms-app">
-    <aside className={mobileNav ? "cms-sidebar open" : "cms-sidebar"}><div className="cms-brand"><span>FE</span><div><strong>Faith Ekuase</strong><small>Content studio</small></div><button className="cms-close" aria-label="Close navigation" onClick={() => setMobileNav(false)}><X size={18} /></button></div><nav>{nav.map(([key, label, icon]) => <button key={key} className={tab === key ? "active" : ""} onClick={() => { setTab(key); setMobileNav(false); }}>{icon}{label}</button>)}</nav><div className="sidebar-bottom"><a href="/" target="_blank" rel="noreferrer">View live site ↗</a><button onClick={async () => { await supabase.auth.signOut(); setSession(null); }}><LogOut size={15} />Log out</button></div></aside>
-    <div className="cms-main"><header className="cms-topbar"><button className="mobile-nav-toggle" aria-label="Open navigation" onClick={() => setMobileNav(true)}><Menu size={20} /></button><div><p className="eyebrow">Faith Ekuase / CMS</p><h1>{nav.find(([key]) => key === tab)?.[1]}</h1></div><div className="topbar-status"><span className="live-dot" />Connected to live site</div></header>
-      <div className="cms-content">{notice && <div className="cms-notice"><Check size={15} />{notice}<button aria-label="Dismiss message" onClick={() => setNotice("")}><X size={14} /></button></div>}
-        {tab === "overview" && <Overview vlogs={vlogs} links={links} onAdd={addVlog} onTab={setTab} />}
-        {tab === "profile" && <><JsonForm title="Profile & identity" description="The words shown in the opening and About sections." contentKey="profile" values={content.profile ?? {}} fields={PROFILE_FIELDS} onSave={saveContent} loading={loading} /><JsonForm title="Collaboration" description="The invitation and collaboration ideas shown to brands." contentKey="collaboration" values={content.collaboration ?? {}} fields={[{key:"eyebrow",label:"Eyebrow"},{key:"title",label:"Headline"},{key:"paragraphs",label:"Paragraphs (one per line)",list:true,multiline:true},{key:"ideas",label:"Collaboration ideas (one per line)",list:true,multiline:true}]} onSave={saveContent} loading={loading} /><JsonForm title="Contact" description="The contact details and enquiry message on the live site." contentKey="contact" values={content.contact ?? {}} fields={[{key:"eyebrow",label:"Eyebrow"},{key:"title",label:"Headline"},{key:"lead",label:"Introduction",multiline:true},{key:"email",label:"Email address"},{key:"whatsapp",label:"Displayed WhatsApp number"},{key:"whatsappUrl",label:"WhatsApp link"},{key:"note",label:"Enquiry note",multiline:true}]} onSave={saveContent} loading={loading} /><JsonForm title="Media kit" description="The media-kit request section." contentKey="media_kit" values={content.media_kit ?? {}} fields={[{key:"eyebrow",label:"Eyebrow"},{key:"title",label:"Headline"},{key:"paragraphs",label:"Paragraphs (one per line)",list:true,multiline:true},{key:"requestEmail",label:"Request email"}]} onSave={saveContent} loading={loading} /></>}
-        {tab === "settings" && <JsonForm title="Website settings" description="Control page details, the footer, and the final invitation." contentKey="settings" values={content.settings ?? {}} fields={SETTINGS_FIELDS} onSave={saveContent} loading={loading} />}
-        {tab === "vlogs" && <Vlogs vlogs={vlogs} previews={assetPreviews} editing={editing} draft={vlogDraft} setEditing={setEditing} setDraft={setVlogDraft} add={addVlog} save={saveVlog} remove={removeVlog} move={moveVlog} upload={uploadFile} loading={loading} />}
-        {tab === "links" && <Links links={links} setNotice={setNotice} load={load} />}
-        {tab === "media" && <Media assets={assets} previews={assetPreviews} upload={uploadFile} setNotice={setNotice} load={load} />}
-      </div>
-    </div>
-  </div>;
+  const [session, setSession] = useState<unknown>(null); const [authReady,setAuthReady]=useState(false); const [mode,setMode]=useState<"login"|"signup">("login"); const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [showPassword,setShowPassword]=useState(false); const [authError,setAuthError]=useState(""); const [notice,setNotice]=useState(""); const [tab,setTab]=useState<Tab>("overview"); const [mobileNav,setMobileNav]=useState(false);
+  const [vlogs,setVlogs]=useState<Vlog[]>([]); const [links,setLinks]=useState<LinkRecord[]>([]); const [profile,setProfile]=useState<Record<string,string>>({}); const [settings,setSettings]=useState<Record<string,string|number|boolean>>({}); const [editing,setEditing]=useState<string|null>(null); const [draft,setDraft]=useState<Partial<Vlog>>({}); const [loading,setLoading]=useState(false);
+  const load = async () => { const {data:{session}}=await supabase.auth.getSession(); setSession(session); setAuthReady(true); if(!session)return; await supabase.rpc("claim_first_admin", { _user_id: session.user.id }); const [v,l,p,s]=await Promise.all([supabase.from("vlogs").select("*").is("deleted_at",null).order("sort_order"),supabase.from("cms_links").select("*").order("sort_order"),supabase.from("cms_profiles").select("*").limit(1).maybeSingle(),supabase.from("cms_settings").select("*").limit(1).maybeSingle()]); if(v.data)setVlogs(v.data as Vlog[]); if(l.data)setLinks(l.data as LinkRecord[]); if(p.data)setProfile(p.data); if(s.data)setSettings(s.data); };
+  useEffect(()=>{void load(); const {data}=supabase.auth.onAuthStateChange(()=>void load()); return ()=>data.subscription.unsubscribe();},[]);
+  const auth = async (e:React.FormEvent) => { e.preventDefault(); setAuthError(""); const normalizedEmail=email.trim().toLowerCase(); const submittedPassword=password; if(!normalizedEmail||!normalizedEmail.includes("@")){setAuthError("Enter a valid email address.");return;} if(Array.from(submittedPassword).length<8){setAuthError(`Your password has ${Array.from(submittedPassword).length} characters. Use at least 8 characters.`);return;} let result; try { result=mode==="login"?await supabase.auth.signInWithPassword({email:normalizedEmail,password:submittedPassword}):await supabase.auth.signUp({email:normalizedEmail,password:submittedPassword,options:{emailRedirectTo:window.location.origin+"/admin"}}); } catch { setAuthError("We couldn't reach the workspace. Check your connection and try again."); return; } if(result.error){const message=result.error.message.toLowerCase(); const friendly=message.includes("invalid login")||message.includes("invalid credentials")?"Incorrect email or password.":message.includes("already")?"An account already exists for this email.":message.includes("confirm")||message.includes("not confirmed")?"This account still needs to be confirmed before signing in.":message.includes("rate limit")?"Too many attempts. Please wait a moment and try again.":message.includes("password")?result.error.message:message.includes("email")?"Enter a valid email address.":"We couldn't complete that request. Check your connection and try again."; setAuthError(friendly);return;} if(mode==="signup"&&!result.data.session){const retry=await supabase.auth.signInWithPassword({email:normalizedEmail,password:submittedPassword});if(!retry.error&&retry.data.session){setNotice("Account created. Welcome to your workspace.");await load();}else{const retryMessage=(retry.error?.message??"").toLowerCase();if(retryMessage.includes("confirm")||retryMessage.includes("email not confirmed")){setNotice("Account created. Sign in again to continue.");}else{setNotice("Account created. Sign in to continue.");}setMode("login");}} else await load(); };
+  const saveVlog = async () => { if(!editing)return; setLoading(true); const {error}=await supabase.from("vlogs").update({...draft,updated_at:new Date().toISOString()}).eq("id",editing); setLoading(false); if(error){setNotice("Could not save vlog.");return;} setNotice("Vlog saved.");setEditing(null);await load(); };
+  const addVlog = async()=>{setLoading(true);const {data,error}=await supabase.from("vlogs").insert({...emptyVlog(),title:`Video ${vlogs.length+1}`,sort_order:vlogs.length+1}).select().single();setLoading(false);if(error){console.log("[v0] Add vlog failed:",error);setNotice(`Could not add vlog: ${error.message}`);return;} setVlogs([...vlogs,data as Vlog]);setEditing(data.id);setDraft(data as Vlog);setTab("vlogs");};
+  const removeVlog = async(id:string)=>{if(!window.confirm("Delete this vlog?"))return;await supabase.from("vlogs").update({deleted_at:new Date().toISOString(),is_visible:false}).eq("id",id);await load();setNotice("Vlog deleted.");};
+  const moveVlog=async(i:number,d:number)=>{const j=i+d;if(j<0||j>=vlogs.length)return;const a=vlogs[i],b=vlogs[j];await Promise.all([supabase.from("vlogs").update({sort_order:b.sort_order}).eq("id",a.id),supabase.from("vlogs").update({sort_order:a.sort_order}).eq("id",b.id)]);await load();};
+  const upload=async(file:File,id:string,kind:"video"|"image")=>{if(kind==="video"&&!file.type.startsWith("video/")){setNotice("Choose a video file.");return;}if(kind==="image"&&!file.type.startsWith("image/")){setNotice("Choose an image file.");return;}setNotice("Uploading…");const path=`${kind}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.-]/g,"-")}`;const {error}=await supabase.storage.from("cms-media").upload(path,file,{contentType:file.type,upsert:false});if(error){setNotice("Upload failed. Please retry.");return;}const {data}=supabase.storage.from("cms-media").getPublicUrl(path);const field=kind==="video"?"media_url":"thumbnail_url";await supabase.from("vlogs").update({[field]:data.publicUrl,upload_status:kind==="video"?"uploaded":undefined,updated_at:new Date().toISOString()}).eq("id",id);setNotice("Upload complete.");await load();};
+  const saveRecord=async(table:string,id:string,values:Record<string,unknown>)=>{const {error}=await supabase.from(table).update({...values,updated_at:new Date().toISOString()}).eq("id",id);if(error){console.log("[v0] Save failed:",table,error);setNotice(`Could not save changes: ${error.message}`);return;}setNotice("Changes saved.");await load();};
+  if(!authReady)return <div className="admin-loading"><div className="admin-spinner"/>Loading workspace</div>;
+  if(!session)return <main className="auth-screen"><div className="auth-panel"><div className="admin-mark"><ShieldCheck size={18}/> FE / CMS</div><p className="eyebrow">Private workspace</p><h1>{mode==="login"?"Welcome back.":"Create your workspace."}</h1><p className="auth-sub">Manage Faith’s website, media, links, and collaborations from one calm place.</p><form className="admin-form" onSubmit={auth}><label>Email address<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="you@example.com"/></label><label>Password<div className="password-field"><input type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.currentTarget.value)} onInput={e=>setPassword(e.currentTarget.value)} required minLength={8} autoComplete={mode==="signup"?"new-password":"current-password"} placeholder="At least 8 characters"/><button type="button" className="password-toggle" aria-label={showPassword?"Hide password":"Show password"} onClick={()=>setShowPassword(!showPassword)}>{showPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div><small className="field-hint">{password.length}/8 characters minimum</small></label>{authError&&<p className="admin-error">{authError}</p>}{notice&&<p className="admin-success">{notice}</p>}<button className="admin-submit" type="submit">{mode==="login"?"Sign in":"Create account"}<span>↗</span></button></form><button className="auth-switch" onClick={()=>{setMode(mode==="login"?"signup":"login");setAuthError("")}}>{mode==="login"?"Need an account? Create one":"Already have an account? Sign in"}</button></div></main>;
+  const nav:[Tab,string,React.ReactNode][]=[["overview","Overview",<LayoutDashboard size={16}/>],["profile","Profile",<UserRound size={16}/>],["vlogs","Vlogs & videos",<Film size={16}/>],["links","Links",<Link2 size={16}/>],["settings","Settings",<Settings size={16}/>]];
+  return <div className="cms-app"><aside className={mobileNav?"cms-sidebar open":"cms-sidebar"}><div className="cms-brand"><span>FE</span><div><strong>Faith Ekuase</strong><small>Content studio</small></div><button className="cms-close" onClick={()=>setMobileNav(false)}><X size={18}/></button></div><nav>{nav.map(([key,label,icon])=><button key={key} className={tab===key?"active":""} onClick={()=>{setTab(key);setMobileNav(false)}}>{icon}{label}</button>)}</nav><div className="sidebar-bottom"><a href="/" target="_blank">View live site ↗</a><button onClick={async()=>{await supabase.auth.signOut();setSession(null)}}><LogOut size={15}/>Log out</button></div></aside><div className="cms-main"><header className="cms-topbar"><button className="mobile-nav-toggle" onClick={()=>setMobileNav(true)}><Menu size={20}/></button><div><p className="eyebrow">Faith Ekuase / CMS</p><h1>{nav.find(n=>n[0]===tab)?.[1]}</h1></div><div className="topbar-status"><span className="live-dot"/>All changes live</div></header><div className="cms-content">{notice&&<div className="cms-notice"><Check size={15}/>{notice}<button onClick={()=>setNotice("")}><X size={14}/></button></div>}{tab==="overview"&&<Overview vlogs={vlogs} links={links} onAdd={addVlog} onTab={setTab}/>} {tab==="profile"&&<ContentForm title="Profile & identity" description="The words that introduce Faith across the website." table="cms_profiles" id={profile.id as string} values={profile} fields={[["display_name","Public display name"],["hero_headline","Hero headline"],["hero_description","Hero description"],["about_title","About section title"],["about_description","About description"],["course_of_study","Course of study"],["creator_category","Creator category"],["short_bio","Short biography"],["footer_description","Footer description"],["location","Location"],["tagline","Creator tagline"]]} save={saveRecord}/>} {tab==="settings"&&<ContentForm title="Website settings" description="Control metadata and how the homepage behaves." table="cms_settings" id={settings.id as string} values={settings} fields={[["website_title","Website title"],["browser_title","Browser page title"],["meta_description","Meta description"],["footer_text","Footer text"],["copyright_text","Copyright text"],["initial_vlog_count","Initial visible vlog count"]]} save={saveRecord}/>} {tab==="vlogs"&&<Vlogs vlogs={vlogs} editing={editing} draft={draft} setEditing={setEditing} setDraft={setDraft} add={addVlog} save={saveVlog} remove={removeVlog} move={moveVlog} upload={upload} loading={loading}/>} {tab==="links"&&<Links links={links} setNotice={setNotice} load={load}/>}</div></div></div>;
 }
 
 function AuthScreen({ mode, setMode, email, setEmail, password, setPassword, showPassword, setShowPassword, error, notice, authenticate }: { mode:"login"|"signup"; setMode:(value:"login"|"signup")=>void; email:string; setEmail:(value:string)=>void; password:string; setPassword:(value:string)=>void; showPassword:boolean; setShowPassword:(value:boolean)=>void; error:string; notice:string; authenticate:(event:React.FormEvent)=>void }) {
