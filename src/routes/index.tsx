@@ -71,6 +71,33 @@ const footerLinks: Array<[string, string]> = [
 
 type Vlog = { id: string; media_url: string; title: string; category: string; description: string; sort_order: number };
 
+const attachedVlogs: Vlog[] = [
+  {
+    id: "attached-vlog-1",
+    media_url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Video%202026-09-20%20at%2012.46.25%20AM-FpDbzxVaJdJeDvLal8yzMVNs0GDhoQ.mp4",
+    title: "A little moment worth sharing",
+    category: "Everyday moments",
+    description: "A glimpse into the moments that make the everyday feel special.",
+    sort_order: 1,
+  },
+  {
+    id: "attached-vlog-2",
+    media_url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Video%202026-09-20%20at%2012.46.33%20AM%20%281%29-YUxJ2QqKtIh6lId0Uj5nhr53qRqjft.mp4",
+    title: "Come along with me",
+    category: "Life lately",
+    description: "A personal look at life, movement, and the stories in between.",
+    sort_order: 2,
+  },
+  {
+    id: "attached-vlog-3",
+    media_url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Video%202026-09-20%20at%2012.46.33%20AM-aT0g7RsXFydyqWS0h32uif84lPh4BI.mp4",
+    title: "Through my lens",
+    category: "Creator diary",
+    description: "A short behind-the-scenes glimpse from my world.",
+    sort_order: 3,
+  },
+];
+
 function Reveal({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   return (
     <div className={`reveal ${className}`} style={{ "--reveal-delay": `${delay}ms` } as React.CSSProperties}>
@@ -112,7 +139,11 @@ function Index() {
       .order("sort_order", { ascending: true })
       .then(({ data, error }) => {
         if (error) console.error("[v0] Failed to load published vlogs", error);
-        if (active && data) setVideos(data as Vlog[]);
+        if (active) {
+          const published = (data ?? []) as Vlog[];
+          const attached = attachedVlogs.filter((video) => !published.some((item) => item.media_url === video.media_url));
+          setVideos([...published, ...attached].slice(0, 3));
+        }
       });
     return () => { active = false; };
   }, []);
