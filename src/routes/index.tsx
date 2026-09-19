@@ -21,6 +21,23 @@ const aboutAsset = {
   url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/A%20little%20introduction%20is%20probably%20long%20overdue%20%F0%9F%8C%B7%20so%20hi%2C%20I%E2%80%99m%20Faith%F0%9F%92%97If%20you%E2%80%99re%20new%20here%2C%20i%E2%80%99m%20happ-Npc67YE18XDQpypAyIqjFkMHP3fG9X.jpg",
 };
 
+const modellingImages = [
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.01%20AM%20%283%29-TDjLVKmKvwz1tjagbmhATSzCyFNGAu.jpeg", "Portrait in a rich purple satin dress"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.01%20AM-SYPqvvdlo0AsYDQAIZHsA5r45lSFAm.jpeg", "Playful portrait in a purple dress"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.01%20AM%20%281%29-UNvIDQDWxiNsBQOvvYI8QISCFC8qyJ.jpeg", "Graduation portrait in blue and purple"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.02%20AM%20%281%29-NHeafEbz5iBn0aFeCrtNIiHqbtSj9X.jpeg", "Outdoor portrait in a patterned dress"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.01%20AM%20%282%29-AO9YvGea1puX0oMG2sl1gwYced6a6T.jpeg", "Full-length portrait in a purple dress"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.02%20AM%20%282%29-EEpfZiNWVCFOVnVa7ptlxVbJhmqHqW.jpeg", "Portrait in a dark gathered blouse"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.03%20AM%20%281%29-YJiu7q9cbx6EhiPvLimbvusNReXIbL.jpeg", "Outdoor full-length portrait"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.02%20AM-YW9QxoItSz3EWDGKVqW6npb9U8vSJy.jpeg", "Portrait beside a car"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.03%20AM-FBkBHnl7V8yyqR6fVY6aGHbomZEY7N.jpeg", "Close-up outdoor portrait"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.03%20AM%20%282%29-8R19KS3Kt4oHOp4k57ixYdMn738BMd.jpeg", "Creative portrait at a café table"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.04%20AM%20%281%29-FppX8MZM430VHcVuPUwbZVjHSqjAyi.jpeg", "Portrait in a white shirt"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-18%20at%2010.13.26%20PM-DhEmZ0o5ZVFTvisobGpCYPB4Z05unW.jpeg", "Formal portrait in a blue graduation stole"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-18%20at%2010.34.55%20PM-ftPIAGTCoZMtKgX5gb0fC5pXvGoEES.jpeg", "Warm portrait on a cream sofa"],
+  ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-19%20at%208.47.45%20AM-5CgPp2cK058HIWglW1MaImNjJK9P30.jpeg", "Close-up portrait with copper braids"],
+] as const;
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -109,7 +126,7 @@ function Index() {
         <a href="#home" className="font-display text-lg font-semibold" onClick={closeMenu}>Faith Ekuase</a>
         <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex" aria-label="Main navigation">
           <a className="nav-link" href="#home">Home</a><a className="nav-link" href="#about">About</a>
-          <a className="nav-link" href="#vlogs">Vlogs</a><a className="nav-link" href="#collaborate">Collaborate</a>
+          <a className="nav-link" href="#vlogs">Vlogs</a><a className="nav-link" href="#modelling">Modelling</a><a className="nav-link" href="#collaborate">Collaborate</a>
           <a className="nav-link" href="#contact">Contact</a>
         </nav>
         <a href="#contact" className="button-primary nav-cta">Work with me <ArrowUpRight size={16} /></a>
@@ -118,7 +135,7 @@ function Index() {
         </button>
         {menuOpen && (
           <nav className="mobile-menu md:hidden" aria-label="Mobile navigation">
-            {[["Home", "#home"], ["About", "#about"], ["Vlogs", "#vlogs"], ["Collaborate", "#collaborate"], ["Contact", "#contact"]].map(([label, href]) => (
+            {[["Home", "#home"], ["About", "#about"], ["Vlogs", "#vlogs"], ["Modelling", "#modelling"], ["Collaborate", "#collaborate"], ["Contact", "#contact"]].map(([label, href]) => (
               <a key={href} href={href} onClick={closeMenu}>{label}<ArrowDownRight size={18} /></a>
             ))}
           </nav>
@@ -182,6 +199,21 @@ function Index() {
           <p>Between school, creating, and everything in between, I’m learning, growing, and discovering what I want to say through my videos.</p>
           <p className="closing-line">Still becoming. Still creating. Still grateful.</p>
         </Reveal>
+      </section>
+
+      <section id="modelling" className="section modelling-section">
+        <Reveal className="section-heading">
+          <p className="eyebrow">Selected portraits · 2026</p>
+          <h2>Modelling,<br />through my lens.</h2>
+          <p>A collection of portraits, fashion moments, and everyday frames that celebrate expression, confidence, and the stories we carry in front of the camera.</p>
+        </Reveal>
+        <div className="modelling-grid">
+          {modellingImages.map(([src, alt], index) => (
+            <Reveal key={src} className={`modelling-card modelling-card-${index + 1}`} delay={(index % 4) * 70}>
+              <img src={src} alt={alt} loading="lazy" />
+            </Reveal>
+          ))}
+        </div>
       </section>
 
       <section className="section approach-section">
