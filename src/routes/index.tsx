@@ -109,7 +109,7 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [videos, setVideos] = useState<Vlog[]>([]);
+  const [videos, setVideos] = useState<Vlog[]>(attachedVlogs);
   const [showAllVideos, setShowAllVideos] = useState(false);
 
   useEffect(() => {
@@ -141,8 +141,8 @@ function Index() {
         if (error) console.error("[v0] Failed to load published vlogs", error);
         if (active) {
           const published = (data ?? []) as Vlog[];
-          const attached = attachedVlogs.filter((video) => !published.some((item) => item.media_url === video.media_url));
-          setVideos([...published, ...attached].slice(0, 3));
+          const additional = published.filter((item) => !attachedVlogs.some((video) => video.media_url === item.media_url));
+          setVideos([...attachedVlogs, ...additional]);
         }
       });
     return () => { active = false; };
@@ -201,7 +201,7 @@ function Index() {
         </Reveal>
         <div className="video-layout">
           {visibleVideos.map((video, index) => (
-            <Reveal key={video.title} className={`video-card ${index === 0 ? "video-featured" : ""}`} delay={index * 90}>
+            <Reveal key={video.id} className={`video-card ${index === 0 ? "video-featured" : ""}`} delay={index * 90}>
               <div className="video-frame">
                 <video src={video.media_url} controls preload="metadata" playsInline aria-label={video.title} />
               </div>
