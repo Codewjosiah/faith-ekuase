@@ -107,7 +107,7 @@ h1, h2, h3 { letter-spacing: 0; }
 .section-vlogs .eyebrow { color: var(--rose-dark); }
 .section-vlogs .section-heading > p:last-child, .section-vlogs .video-info > div > p:last-child { color: color-mix(in oklab, var(--background) 62%, transparent); }
 .video-layout { display: grid; gap: 42px 22px; }
-.video-frame { overflow: hidden; background: var(--background); }
+.video-frame { overflow: hidden; background: var(--background); border-radius: 18px; }
 .video-frame video { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; }
 .video-info { display: grid; gap: 18px; padding-top: 18px; }
 .video-info h3 { margin: 5px 0 8px; font-family: var(--font-display); font-size: 1.65rem; font-weight: 400; }
