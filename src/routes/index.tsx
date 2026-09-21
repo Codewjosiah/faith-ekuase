@@ -12,7 +12,6 @@ import {
   Youtube,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { supabase } from "../integrations/supabase/client";
 
 const heroAsset = {
   url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/channels4_profile-hcyvINGNgSvvHYQRzwyX2wxZXLHErM.jpg",
@@ -126,26 +125,6 @@ function Index() {
       window.removeEventListener("scroll", onScroll);
       observer.disconnect();
     };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    supabase
-      .from("vlogs")
-      .select("id, media_url, title, category, description, sort_order")
-      .eq("is_visible", true)
-      .eq("is_featured", true)
-      .neq("media_url", "")
-      .order("sort_order", { ascending: true })
-      .then(({ data, error }) => {
-        if (error) console.error("[v0] Failed to load published vlogs", error);
-        if (active) {
-          const published = (data ?? []) as Vlog[];
-          const additional = published.filter((item) => !attachedVlogs.some((video) => video.media_url === item.media_url));
-          setVideos([...attachedVlogs, ...additional]);
-        }
-      });
-    return () => { active = false; };
   }, []);
 
   const closeMenu = () => setMenuOpen(false);
