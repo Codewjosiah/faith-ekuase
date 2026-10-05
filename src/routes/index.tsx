@@ -64,6 +64,7 @@ const footerLinks: Array<[string, string]> = [
   ["YouTube", "https://youtube.com/@faith-ekuase"],
   ["Instagram", "https://www.instagram.com/faith_ekuase/"],
   ["Pinterest", "https://www.pinterest.com/faithekuase1/"],
+  ["TikTok", "https://www.tiktok.com/@.faithekuase"],
   ["Email", EMAIL],
   ["WhatsApp", WHATSAPP],
 ];
@@ -139,7 +140,6 @@ function Index() {
           <a className="nav-link" href="#vlogs">Vlogs</a><a className="nav-link" href="#modelling">Modelling</a><a className="nav-link" href="#collaborate">Collaborate</a>
           <a className="nav-link" href="#contact">Contact</a>
         </nav>
-        <a href="#contact" className="button-primary nav-cta">Work with me <ArrowUpRight size={16} /></a>
         <button className="icon-button nav-menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>
           {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -154,10 +154,10 @@ function Index() {
 
       <section id="home" className="hero-section">
         <div className="hero-copy">
-          <p className="eyebrow hero-enter">YouTube Vlogger · Storyteller · Creator</p>
+          <p className="eyebrow hero-enter">YouTube Vlogger · Storyteller · Creator · Content Creator</p>
           <h1 className="hero-title hero-enter hero-enter-delay">Life, through<br />my lens.</h1>
           <div className="hero-body hero-enter hero-enter-delay-2">
-            <p>I’m Faith Ekuase, a vlogger who loves capturing everyday moments, personal experiences, and the little things that make life worth remembering.</p>
+            <p>I’m Faith Ekuase, a vlogger and content creator who creates visually engaging content around lifestyle, fashion, beauty, and everyday experiences.</p>
             <p>Come along as I share my world, explore new experiences, and create videos that feel real, personal, and worth watching.</p>
           </div>
           <div className="hero-actions hero-enter hero-enter-delay-2">
@@ -168,7 +168,7 @@ function Index() {
         </div>
         <div className="hero-portrait-wrap hero-enter">
           <img src={heroAsset.url} alt="Faith Ekuase with copper braids, looking thoughtfully to the side" className="hero-portrait" fetchPriority="high" />
-          <div className="portrait-caption"><span>Based in Benin City</span><span>01 / 03</span></div>
+          <div className="portrait-caption"><span>Based in Benin City</span></div>
         </div>
       </section>
 
@@ -176,7 +176,7 @@ function Index() {
         <Reveal className="section-heading">
           <p className="eyebrow">Selected work · 2026</p>
           <h2>Come along for<br />the journey.</h2>
-          <p>A collection of my favourite vlogs and creative projects. From everyday moments to new experiences, these videos are a glimpse into the stories I love capturing and sharing.</p>
+          <p><em>A look at what I create.</em><br />Explore a selection of my recent content across lifestyle, beauty, fashion, and everyday experiences, created to feel authentic and engaging.</p>
         </Reveal>
         <div className="video-layout">
           {visibleVideos.map((video, index) => (
@@ -265,6 +265,7 @@ function Index() {
           <SocialRow number="01" icon={<Youtube />} name="YouTube" text="Watch my vlogs and explore my latest videos." action="Watch on YouTube" href="https://youtube.com/@faith-ekuase" />
           <SocialRow number="02" icon={<Instagram />} name="Instagram" text="A closer look at my life, creative updates, and moments outside the vlog." action="Follow on Instagram" href="https://www.instagram.com/faith_ekuase/" />
           <SocialRow number="03" icon={<span className="pinterest-mark">P</span>} name="Pinterest" text="A collection of visual inspiration, ideas, and things I love." action="Visit Pinterest" href="https://www.pinterest.com/faithekuase1/" />
+          <SocialRow number="04" icon={<span className="pinterest-mark">T</span>} name="TikTok" text="Short-form moments, lifestyle inspiration, and everyday experiences." action="Follow on TikTok" href="https://www.tiktok.com/@.faithekuase" />
         </div>
       </section>
 
