@@ -6,6 +6,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
@@ -76,11 +77,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Faith Ekuase" },
-      { name: "description", content: "The creator portfolio of Faith Ekuase." },
+      { title: "Faith Ekuase - Portfolio" },
+      {
+        name: "description",
+        content: "Portfolio website for Faith Ekuase - lifestyle content creator and model.",
+      },
       { name: "author", content: "Faith Ekuase" },
-      { property: "og:title", content: "Faith Ekuase" },
-      { property: "og:description", content: "Life, through my lens." },
+      { property: "og:title", content: "Faith Ekuase - Portfolio" },
+      {
+        property: "og:description",
+        content: "Portfolio website for Faith Ekuase - lifestyle content creator and model.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
@@ -92,7 +99,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700&display=swap",
+      },
       { rel: "icon", href: "/faith-ekuase-favicon.webp", type: "image/webp" },
     ],
   }),

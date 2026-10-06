@@ -1,0 +1,6 @@
+{
+  "name": "Faith Ekuase - Portfolio",
+  "description": "Portfolio website for Faith Ekuase - lifestyle content creator and model.",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
