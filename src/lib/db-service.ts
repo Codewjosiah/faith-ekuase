@@ -245,7 +245,7 @@ export async function saveVlog(
     title: vlog.title.trim().slice(0, 150),
     category: vlog.category.trim().slice(0, 80),
     description: vlog.description.trim().slice(0, 500),
-    media_url: vlog.media_url.trim().slice(0, 500),
+    media_url: vlog.media_url.trim().slice(0, 2048),
     sort_order: Number(vlog.sort_order) || 0,
     createdAt: now,
     updatedAt: now,
@@ -379,6 +379,26 @@ export async function verifyCurrentUserIsAdmin(): Promise<boolean> {
 
 // ==================== PORTFOLIO CONTENT & IMAGES ====================
 
+export interface SocialLinks {
+  youtube: string;
+  instagram: string;
+  pinterest: string;
+  tiktok: string;
+  email: string;
+  whatsappNumber: string;
+  whatsappLink: string;
+}
+
+export const DEFAULT_SOCIAL_LINKS: SocialLinks = {
+  youtube: "https://youtube.com/@faith-ekuase",
+  instagram: "https://www.instagram.com/faith_ekuase/",
+  pinterest: "https://www.pinterest.com/faithekuase1/",
+  tiktok: "https://www.tiktok.com/@.faithekuase",
+  email: "faithekuase1@gmail.com",
+  whatsappNumber: "+234 705 508 2561",
+  whatsappLink: "https://wa.me/2347055082561",
+};
+
 export interface PortfolioContent {
   heroImageUrl: string;
   heroCaption: string;
@@ -388,6 +408,7 @@ export interface PortfolioContent {
   aboutLead: string;
   aboutStory: string;
   modellingImages: Array<{ url: string; caption: string }>;
+  socialLinks: SocialLinks;
   updatedAt: string;
 }
 
@@ -399,10 +420,10 @@ export const DEFAULT_PORTFOLIO_CONTENT: PortfolioContent = {
     "I’m Faith Ekuase, a vlogger and content creator who creates visually engaging content around lifestyle, fashion, beauty, and everyday experiences.\n\nCome along as I share my world, explore new experiences, and create videos that feel real, personal, and worth watching.",
   aboutImageUrl:
     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/A%20little%20introduction%20is%20probably%20long%20overdue%20%F0%9F%8C%B7%20so%20hi%2C%20I%E2%80%99m%20Faith%F0%9F%92%97If%20you%E2%80%99re%20new%20here%2C%20i%E2%80%99m%20happ-Npc67YE18XDQpypAyIqjFkMHP3fG9X.jpg",
-  aboutPolaroidCaption: "Faith Ekuase · The Storyteller",
-  aboutLead: "I’ve always believed that the most meaningful content comes from real life.",
+  aboutPolaroidCaption: "hello, it’s Faith ♡",
+  aboutLead: "I’m Faith Ekuase.",
   aboutStory:
-    "My vlogs aren’t about perfection—they’re about perspective. Whether I’m sharing an everyday routine, documenting a trip, or capturing a quiet afternoon, I want every video to feel like you’re right there with me.\n\nFrom the rhythm of daily life to the beauty in small details, my goal is simple: create videos that resonate, inspire, and invite you into a world that feels genuine and warm.",
+    "A Physiotherapy student, a vlogger, and someone who enjoys finding stories in the everyday.\n\nI love capturing experiences, sharing my perspective, and bringing people along for the moments that make life interesting. My faith is part of that journey too—quietly shaping the way I see things, the values I carry, and the gratitude I have for where I am.\n\nBetween school, creating, and everything in between, I’m learning, growing, and discovering what I want to say through my videos.",
   modellingImages: [
     {
       url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.01%20AM%20%283%29-TDjLVKmKvwz1tjagbmhATSzCyFNGAu.jpeg",
@@ -461,8 +482,111 @@ export const DEFAULT_PORTFOLIO_CONTENT: PortfolioContent = {
       caption: "Close-up portrait with copper braids",
     },
   ],
+  socialLinks: DEFAULT_SOCIAL_LINKS,
   updatedAt: new Date().toISOString(),
 };
+
+export interface GalleryMediaItem {
+  id: string;
+  name: string;
+  url: string;
+  type: "image" | "video";
+  uploadedAt: string;
+}
+
+export function getLocalGalleryHistory(): GalleryMediaItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem("faith_gallery_media");
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function saveToLocalGalleryHistory(item: Omit<GalleryMediaItem, "id">): GalleryMediaItem {
+  const newItem: GalleryMediaItem = {
+    ...item,
+    id: `gallery_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+  };
+  if (typeof window !== "undefined") {
+    try {
+      const existing = getLocalGalleryHistory();
+      const updated = [newItem, ...existing.filter((i) => i.url !== item.url)].slice(0, 50);
+      localStorage.setItem("faith_gallery_media", JSON.stringify(updated));
+    } catch {
+      // Non-critical
+    }
+  }
+  return newItem;
+}
+
+export async function uploadFileToGallery(file: File): Promise<string> {
+  const isVideo = file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+
+  // 1. Try standard binary multipart upload first
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as { url?: string };
+      if (data.url) {
+        saveToLocalGalleryHistory({
+          name: file.name,
+          url: data.url,
+          type: isVideo ? "video" : "image",
+          uploadedAt: new Date().toISOString(),
+        });
+        return data.url;
+      }
+    }
+  } catch (err) {
+    console.warn("Multipart upload error, trying base64 fallback:", err);
+  }
+
+  // 2. Base64 fallback if multipart fetch is intercepted or unsupported
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: file.name,
+            base64,
+          }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { url?: string };
+          if (data.url) {
+            saveToLocalGalleryHistory({
+              name: file.name,
+              url: data.url,
+              type: isVideo ? "video" : "image",
+              uploadedAt: new Date().toISOString(),
+            });
+            resolve(data.url);
+            return;
+          }
+        }
+        throw new Error("Server upload endpoint did not return URL");
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error("File upload failed"));
+      }
+    };
+    reader.onerror = () => reject(new Error("Unable to read file from gallery/device"));
+    reader.readAsDataURL(file);
+  });
+}
 
 const PORTFOLIO_CONTENT_DOC = "main";
 
@@ -485,6 +609,16 @@ export function subscribePortfolioContent(
             // fallback
           }
         }
+
+        let parsedSocials: SocialLinks = DEFAULT_SOCIAL_LINKS;
+        if (raw.socialLinksJson) {
+          try {
+            parsedSocials = { ...DEFAULT_SOCIAL_LINKS, ...JSON.parse(raw.socialLinksJson) };
+          } catch {
+            // fallback
+          }
+        }
+
         onData({
           heroImageUrl: raw.heroImageUrl || DEFAULT_PORTFOLIO_CONTENT.heroImageUrl,
           heroCaption: raw.heroCaption || DEFAULT_PORTFOLIO_CONTENT.heroCaption,
@@ -495,6 +629,7 @@ export function subscribePortfolioContent(
           aboutLead: raw.aboutLead || DEFAULT_PORTFOLIO_CONTENT.aboutLead,
           aboutStory: raw.aboutStory || DEFAULT_PORTFOLIO_CONTENT.aboutStory,
           modellingImages: parsedModelling,
+          socialLinks: parsedSocials,
           updatedAt: raw.updatedAt || new Date().toISOString(),
         });
       } else {
@@ -513,10 +648,13 @@ export async function savePortfolioContent(content: Partial<PortfolioContent>): 
   const now = new Date().toISOString();
 
   const payload: Record<string, unknown> = {
-    heroImageUrl: (content.heroImageUrl || DEFAULT_PORTFOLIO_CONTENT.heroImageUrl).slice(0, 500),
+    heroImageUrl: (content.heroImageUrl || DEFAULT_PORTFOLIO_CONTENT.heroImageUrl).slice(0, 2048),
     heroCaption: (content.heroCaption || DEFAULT_PORTFOLIO_CONTENT.heroCaption).slice(0, 100),
     heroSubtitle: (content.heroSubtitle || DEFAULT_PORTFOLIO_CONTENT.heroSubtitle).slice(0, 1000),
-    aboutImageUrl: (content.aboutImageUrl || DEFAULT_PORTFOLIO_CONTENT.aboutImageUrl).slice(0, 500),
+    aboutImageUrl: (content.aboutImageUrl || DEFAULT_PORTFOLIO_CONTENT.aboutImageUrl).slice(
+      0,
+      2048,
+    ),
     aboutPolaroidCaption: (
       content.aboutPolaroidCaption || DEFAULT_PORTFOLIO_CONTENT.aboutPolaroidCaption
     ).slice(0, 150),
@@ -524,7 +662,10 @@ export async function savePortfolioContent(content: Partial<PortfolioContent>): 
     aboutStory: (content.aboutStory || DEFAULT_PORTFOLIO_CONTENT.aboutStory).slice(0, 3000),
     modellingImagesJson: JSON.stringify(
       content.modellingImages || DEFAULT_PORTFOLIO_CONTENT.modellingImages,
-    ).slice(0, 15000),
+    ).slice(0, 50000),
+    socialLinksJson: JSON.stringify(
+      content.socialLinks || DEFAULT_PORTFOLIO_CONTENT.socialLinks,
+    ).slice(0, 5000),
     updatedAt: now,
   };
 

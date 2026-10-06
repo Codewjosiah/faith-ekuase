@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { handleUploadRequest, handleServeUpload } from "./lib/server-upload";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -47,6 +48,19 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+
+      // Handle file upload API
+      if (url.pathname === "/api/upload") {
+        return await handleUploadRequest(request);
+      }
+
+      // Handle static /uploads/ media serving with range support
+      if (url.pathname.startsWith("/uploads/")) {
+        const uploadResponse = await handleServeUpload(request, url.pathname);
+        if (uploadResponse) return uploadResponse;
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

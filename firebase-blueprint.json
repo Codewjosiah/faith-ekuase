@@ -218,6 +218,11 @@
           "description": "JSON serialized list of modelling gallery images and captions",
           "maxLength": 15000
         },
+        "socialLinksJson": {
+          "type": "string",
+          "description": "JSON serialized object containing YouTube, Instagram, TikTok, Pinterest, Email, and WhatsApp links",
+          "maxLength": 2000
+        },
         "updatedAt": {
           "type": "string",
           "description": "Timestamp when content was last updated"

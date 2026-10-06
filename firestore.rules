@@ -49,7 +49,7 @@ service cloud.firestore {
         data.title is string && data.title.size() >= 2 && data.title.size() <= 150 &&
         data.category is string && data.category.size() >= 2 && data.category.size() <= 80 &&
         data.description is string && data.description.size() >= 5 && data.description.size() <= 500 &&
-        data.media_url is string && data.media_url.size() >= 10 && data.media_url.size() <= 500 &&
+        data.media_url is string && data.media_url.size() >= 5 && data.media_url.size() <= 2048 &&
         data.sort_order is number &&
         data.createdAt is string && data.createdAt.size() <= 40 &&
         data.updatedAt is string && data.updatedAt.size() <= 40;
@@ -76,15 +76,16 @@ service cloud.firestore {
 
     function isValidPortfolioContent(data) {
       return data.keys().hasAll(['heroImageUrl', 'aboutImageUrl', 'updatedAt']) &&
-        data.keys().hasOnly(['heroImageUrl', 'heroCaption', 'heroSubtitle', 'aboutImageUrl', 'aboutPolaroidCaption', 'aboutLead', 'aboutStory', 'modellingImagesJson', 'updatedAt']) &&
-        data.heroImageUrl is string && data.heroImageUrl.size() <= 500 &&
-        data.aboutImageUrl is string && data.aboutImageUrl.size() <= 500 &&
+        data.keys().hasOnly(['heroImageUrl', 'heroCaption', 'heroSubtitle', 'aboutImageUrl', 'aboutPolaroidCaption', 'aboutLead', 'aboutStory', 'modellingImagesJson', 'socialLinksJson', 'updatedAt']) &&
+        data.heroImageUrl is string && data.heroImageUrl.size() <= 2048 &&
+        data.aboutImageUrl is string && data.aboutImageUrl.size() <= 2048 &&
         (!('heroCaption' in data) || (data.heroCaption is string && data.heroCaption.size() <= 100)) &&
         (!('heroSubtitle' in data) || (data.heroSubtitle is string && data.heroSubtitle.size() <= 1000)) &&
         (!('aboutPolaroidCaption' in data) || (data.aboutPolaroidCaption is string && data.aboutPolaroidCaption.size() <= 150)) &&
         (!('aboutLead' in data) || (data.aboutLead is string && data.aboutLead.size() <= 500)) &&
         (!('aboutStory' in data) || (data.aboutStory is string && data.aboutStory.size() <= 3000)) &&
-        (!('modellingImagesJson' in data) || (data.modellingImagesJson is string && data.modellingImagesJson.size() <= 15000)) &&
+        (!('modellingImagesJson' in data) || (data.modellingImagesJson is string && data.modellingImagesJson.size() <= 50000)) &&
+        (!('socialLinksJson' in data) || (data.socialLinksJson is string && data.socialLinksJson.size() <= 5000)) &&
         data.updatedAt is string && data.updatedAt.size() <= 40;
     }
 

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth, signInAdmin, signUpAdmin, logoutUser, hasAnyRegisteredAdmin } from "../lib/firebase";
 import {
@@ -20,7 +20,12 @@ import {
   subscribePortfolioContent,
   savePortfolioContent,
   DEFAULT_PORTFOLIO_CONTENT,
+  DEFAULT_SOCIAL_LINKS,
+  uploadFileToGallery,
+  getLocalGalleryHistory,
+  type GalleryMediaItem,
   type PortfolioContent,
+  type SocialLinks,
 } from "../lib/db-service";
 import {
   ArrowLeft,
@@ -29,15 +34,22 @@ import {
   ExternalLink,
   FileText,
   Filter,
+  FolderOpen,
+  Globe,
   Image,
   LogIn,
   LogOut,
   Mail,
+  MessageCircle,
+  Play,
   Plus,
   RefreshCw,
   Search,
+  Share2,
   ShieldCheck,
+  Sparkles,
   Trash2,
+  Upload,
   UserPlus,
   Video,
   X,
@@ -52,6 +64,57 @@ export const Route = createFileRoute("/admin")({
   }),
   component: AdminDashboard,
 });
+
+// Curated library of media already in project for quick gallery selection
+const GALLERY_IMAGE_PRESETS = [
+  {
+    name: "Original Hero Portrait",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/channels4_profile-hcyvINGNgSvvHYQRzwyX2wxZXLHErM.jpg",
+  },
+  {
+    name: "Scrapbook Polaroid",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/A%20little%20introduction%20is%20probably%20long%20overdue%20%F0%9F%8C%B7%20so%20hi%2C%20I%E2%80%99m%20Faith%F0%9F%92%97If%20you%E2%80%99re%20new%20here%2C%20i%E2%80%99m%20happ-Npc67YE18XDQpypAyIqjFkMHP3fG9X.jpg",
+  },
+  {
+    name: "Purple Satin Portrait",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.01%20AM%20%283%29-TDjLVKmKvwz1tjagbmhATSzCyFNGAu.jpeg",
+  },
+  {
+    name: "Graduation Blue Stole",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-18%20at%2010.13.26%20PM-DhEmZ0o5ZVFTvisobGpCYPB4Z05unW.jpeg",
+  },
+  {
+    name: "Cream Sofa Portrait",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-18%20at%2010.34.55%20PM-ftPIAGTCoZMtKgX5gb0fC5pXvGoEES.jpeg",
+  },
+  {
+    name: "Copper Braids Portrait",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-19%20at%208.47.45%20AM-5CgPp2cK058HIWglW1MaImNjJK9P30.jpeg",
+  },
+  {
+    name: "Café Table Creative",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.03%20AM%20%282%29-8R19KS3Kt4oHOp4k57ixYdMn738BMd.jpeg",
+  },
+  {
+    name: "Patterned Dress Outdoor",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-20%20at%2012.28.02%20AM%20%281%29-NHeafEbz5iBn0aFeCrtNIiHqbtSj9X.jpeg",
+  },
+];
+
+const GALLERY_VIDEO_PRESETS = [
+  {
+    name: "Everyday Moments Vlog",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Video%202026-09-20%20at%2012.46.25%20AM-FpDbzxVaJdJeDvLal8yzMVNs0GDhoQ.mp4",
+  },
+  {
+    name: "Come Along With Me Vlog",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Video%202026-09-20%20at%2012.46.33%20AM%20%281%29-YUxJ2QqKtIh6lId0Uj5nhr53qRqjft.mp4",
+  },
+  {
+    name: "Through My Lens Diary",
+    url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Video%202026-09-20%20at%2012.46.33%20AM-aT0g7RsXFydyqWS0h32uif84lPh4BI.mp4",
+  },
+];
 
 function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -69,7 +132,7 @@ function AdminDashboard() {
 
   // Dashboard tab
   const [activeTab, setActiveTab] = useState<
-    "overview" | "visuals" | "vlogs" | "inquiries" | "mediakit" | "system"
+    "overview" | "visuals" | "vlogs" | "socials" | "inquiries" | "mediakit"
   >("overview");
 
   // Inquiries state
@@ -86,12 +149,25 @@ function AdminDashboard() {
   // Media kit state
   const [mediaKitRequests, setMediaKitRequests] = useState<MediaKitRequestItem[]>([]);
 
-  // Portfolio Visuals state (Hero, Polaroid, Modelling Gallery)
+  // Portfolio Visuals state (Hero, Polaroid, Modelling Gallery, Socials)
   const [portfolioContent, setPortfolioContent] =
     useState<PortfolioContent>(DEFAULT_PORTFOLIO_CONTENT);
+  const [socialsState, setSocialsState] = useState<SocialLinks>(DEFAULT_SOCIAL_LINKS);
   const [visualsSaving, setVisualsSaving] = useState(false);
+  const [socialsSaving, setSocialsSaving] = useState(false);
   const [newModellingUrl, setNewModellingUrl] = useState("");
   const [newModellingCaption, setNewModellingCaption] = useState("");
+
+  // Gallery Picker Modal
+  const [galleryModalOpen, setGalleryModalOpen] = useState(false);
+  const [galleryPickerType, setGalleryPickerType] = useState<"image" | "video">("image");
+  const [gallerySelectCallback, setGallerySelectCallback] = useState<
+    ((url: string) => void) | null
+  >(null);
+  const [localGallery, setLocalGallery] = useState<GalleryMediaItem[]>([]);
+
+  // File Upload State
+  const [uploadingTarget, setUploadingTarget] = useState<string | null>(null);
 
   // Action status toast
   const [statusNotice, setStatusNotice] = useState<{
@@ -105,7 +181,10 @@ function AdminDashboard() {
   };
 
   useEffect(() => {
-    // Check if an admin account is already registered
+    setLocalGallery(getLocalGalleryHistory());
+  }, []);
+
+  useEffect(() => {
     hasAnyRegisteredAdmin().then((hasAdmin) => {
       setHasAdminRegistered(hasAdmin);
       if (!hasAdmin) {
@@ -152,7 +231,12 @@ function AdminDashboard() {
     );
 
     const unsubVisuals = subscribePortfolioContent(
-      (data) => setPortfolioContent(data),
+      (data) => {
+        setPortfolioContent(data);
+        if (data.socialLinks) {
+          setSocialsState(data.socialLinks);
+        }
+      },
       (err) => console.error("Visuals sync error:", err),
     );
 
@@ -201,7 +285,7 @@ function AdminDashboard() {
         setAuthError("An account with this email already exists. Please sign in.");
       } else if (msg.includes("auth/operation-not-allowed")) {
         setAuthError(
-          "Email/Password sign-in is disabled in Firebase Console. Please enable Email/Password provider under Authentication > Sign-in method.",
+          "Email/Password sign-in is disabled in your Firebase project. Click the button below to enable it in Firebase Console.",
         );
       } else {
         setAuthError(msg);
@@ -220,12 +304,38 @@ function AdminDashboard() {
     }
   };
 
+  // Generic File Upload Handler from Device
+  const handleFileUpload = async (file: File, target: string, onDone: (url: string) => void) => {
+    setUploadingTarget(target);
+    try {
+      const uploadedUrl = await uploadFileToGallery(file);
+      onDone(uploadedUrl);
+      setLocalGallery(getLocalGalleryHistory());
+      showToast(`Uploaded ${file.name} successfully!`);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Upload failed", "error");
+    } finally {
+      setUploadingTarget(null);
+    }
+  };
+
+  // Open Gallery Picker Modal
+  const openGalleryModal = (type: "image" | "video", onSelect: (url: string) => void) => {
+    setGalleryPickerType(type);
+    setGallerySelectCallback(() => onSelect);
+    setLocalGallery(getLocalGalleryHistory());
+    setGalleryModalOpen(true);
+  };
+
   // Portfolio Visuals Handlers
   const handleSaveVisuals = async (e: React.FormEvent) => {
     e.preventDefault();
     setVisualsSaving(true);
     try {
-      await savePortfolioContent(portfolioContent);
+      await savePortfolioContent({
+        ...portfolioContent,
+        socialLinks: socialsState,
+      });
       showToast("Portfolio visuals and stories saved to live site!");
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : "Failed to save visuals", "error");
@@ -234,9 +344,25 @@ function AdminDashboard() {
     }
   };
 
+  const handleSaveSocials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSocialsSaving(true);
+    try {
+      await savePortfolioContent({
+        ...portfolioContent,
+        socialLinks: socialsState,
+      });
+      showToast("Social links and contact numbers published to live site!");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Failed to save social links", "error");
+    } finally {
+      setSocialsSaving(false);
+    }
+  };
+
   const handleAddModellingImage = () => {
     if (!newModellingUrl.trim()) {
-      showToast("Please enter a valid image URL", "error");
+      showToast("Please enter or upload an image", "error");
       return;
     }
     const updated = [
@@ -249,7 +375,7 @@ function AdminDashboard() {
     setPortfolioContent({ ...portfolioContent, modellingImages: updated });
     setNewModellingUrl("");
     setNewModellingCaption("");
-    showToast("Image added to gallery list (click Save Visuals to publish)");
+    showToast("Photo added! Click 'Publish All Visuals' to save changes live.");
   };
 
   const handleRemoveModellingImage = (indexToRemove: number) => {
@@ -261,7 +387,7 @@ function AdminDashboard() {
   const handleSaveVlog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingVlog?.title || !editingVlog?.category || !editingVlog?.media_url) {
-      showToast("Please fill in required fields", "error");
+      showToast("Please fill in required fields (title, category, and video)", "error");
       return;
     }
 
@@ -275,7 +401,7 @@ function AdminDashboard() {
         media_url: editingVlog.media_url,
         sort_order: Number(editingVlog.sort_order ?? vlogs.length + 1),
       });
-      showToast(editingVlog.id ? "Vlog updated" : "New vlog added");
+      showToast(editingVlog.id ? "Vlog updated" : "New vlog added to portfolio");
       setIsVlogModalOpen(false);
       setEditingVlog(null);
     } catch (err: unknown) {
@@ -413,7 +539,8 @@ function AdminDashboard() {
               </div>
               <h2 className="font-display text-2xl font-normal">Creator Administration</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Manage your profile, showcase vlogs, polaroid stories, and collaboration requests.
+                Manage your profile, showcase vlogs, polaroid stories, social links, and
+                collaboration requests.
               </p>
             </div>
 
@@ -533,6 +660,52 @@ function AdminDashboard() {
           </div>
         ) : (
           <div>
+            {/* Quick Action Navigation Bar */}
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/60 p-3">
+              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Sparkles size={14} className="text-primary" />
+                <span>Quick Jump:</span>
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("visuals")}
+                  className="rounded-md border border-border bg-secondary/80 px-3 py-1.5 text-xs font-medium hover:border-primary hover:text-foreground transition"
+                >
+                  🖼️ Profile & Photos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("vlogs")}
+                  className="rounded-md border border-border bg-secondary/80 px-3 py-1.5 text-xs font-medium hover:border-primary hover:text-foreground transition"
+                >
+                  🎬 Showcase Vlogs ({vlogs.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("socials")}
+                  className="rounded-md border border-primary/50 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/25 transition flex items-center gap-1.5"
+                >
+                  <Share2 size={12} />
+                  <span>📱 Social Links & WhatsApp</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("inquiries")}
+                  className="rounded-md border border-border bg-secondary/80 px-3 py-1.5 text-xs font-medium hover:border-primary hover:text-foreground transition"
+                >
+                  📬 Inquiries ({inquiries.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("mediakit")}
+                  className="rounded-md border border-border bg-secondary/80 px-3 py-1.5 text-xs font-medium hover:border-primary hover:text-foreground transition"
+                >
+                  📄 Media Kit ({mediaKitRequests.length})
+                </button>
+              </div>
+            </div>
+
             {/* Dashboard Tabs */}
             <div className="mb-8 flex flex-wrap items-center gap-2 border-b border-border pb-4">
               <button
@@ -567,6 +740,20 @@ function AdminDashboard() {
               >
                 <Video size={14} />
                 <span>Vlogs ({vlogs.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("socials")}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition ${
+                  activeTab === "socials"
+                    ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/40 font-bold"
+                    : "text-foreground bg-primary/10 border border-primary/40 hover:bg-primary/20 font-bold"
+                }`}
+              >
+                <Share2 size={14} className={activeTab === "socials" ? "" : "text-primary"} />
+                <span>Social Links & Contacts</span>
+                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
+                  Manage
+                </span>
               </button>
               <button
                 onClick={() => setActiveTab("inquiries")}
@@ -631,7 +818,7 @@ function AdminDashboard() {
                     <p className="mt-3 font-display text-3xl font-semibold">
                       {portfolioContent.modellingImages.length}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">Through my lens portraits</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Through my lens gallery</p>
                   </div>
 
                   <div className="rounded-xl border border-border bg-card p-5">
@@ -648,44 +835,136 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Quick Shortcuts */}
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div className="rounded-xl border border-border bg-card p-6">
-                    <h3 className="font-display text-lg font-medium">Visuals & Branding</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Update your hero portrait, polaroid photo, about story, and modelling images.
-                    </p>
-                    <div className="mt-4 flex gap-3">
-                      <button
-                        onClick={() => setActiveTab("visuals")}
-                        className="button-primary text-xs"
-                      >
-                        Manage Visuals & Photos
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("vlogs")}
-                        className="button-secondary text-xs"
-                      >
-                        Manage Vlogs
-                      </button>
+                {/* Dedicated Social Links Overview Card */}
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
+                    <div>
+                      <h3 className="font-display text-lg font-semibold flex items-center gap-2">
+                        <Share2 size={18} className="text-primary" />
+                        <span>Live Social Media Profiles & WhatsApp</span>
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        These links and contact numbers are published live across your website
+                        header, Elsewhere Online section, contact section, and footer.
+                      </p>
                     </div>
+                    <button
+                      onClick={() => setActiveTab("socials")}
+                      className="button-primary text-xs inline-flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <Share2 size={14} />
+                      <span>Edit & Manage Social Links</span>
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div className="rounded-lg border border-border/80 bg-background/60 p-3">
+                      <p className="text-muted-foreground font-medium">YouTube Channel</p>
+                      <p
+                        className="mt-1 font-semibold text-foreground truncate"
+                        title={socialsState.youtube}
+                      >
+                        {socialsState.youtube || "Not configured"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/80 bg-background/60 p-3">
+                      <p className="text-muted-foreground font-medium">Instagram Profile</p>
+                      <p
+                        className="mt-1 font-semibold text-foreground truncate"
+                        title={socialsState.instagram}
+                      >
+                        {socialsState.instagram || "Not configured"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/80 bg-background/60 p-3">
+                      <p className="text-muted-foreground font-medium">TikTok Profile</p>
+                      <p
+                        className="mt-1 font-semibold text-foreground truncate"
+                        title={socialsState.tiktok}
+                      >
+                        {socialsState.tiktok || "Not configured"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/80 bg-background/60 p-3">
+                      <p className="text-muted-foreground font-medium">Pinterest Profile</p>
+                      <p
+                        className="mt-1 font-semibold text-foreground truncate"
+                        title={socialsState.pinterest}
+                      >
+                        {socialsState.pinterest || "Not configured"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/80 bg-background/60 p-3">
+                      <p className="text-muted-foreground font-medium">Official Email</p>
+                      <p
+                        className="mt-1 font-semibold text-foreground truncate"
+                        title={socialsState.email}
+                      >
+                        {socialsState.email || "Not configured"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/80 bg-background/60 p-3">
+                      <p className="text-muted-foreground font-medium">WhatsApp Display Number</p>
+                      <p
+                        className="mt-1 font-semibold text-foreground truncate"
+                        title={socialsState.whatsappNumber}
+                      >
+                        {socialsState.whatsappNumber || "Not configured"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/80 bg-background/60 p-3 sm:col-span-2">
+                      <p className="text-muted-foreground font-medium">WhatsApp Direct Chat Link</p>
+                      <p
+                        className="mt-1 font-semibold text-foreground truncate"
+                        title={socialsState.whatsappLink}
+                      >
+                        {socialsState.whatsappLink || "Not configured"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Shortcuts */}
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                  <div className="rounded-xl border border-border bg-card p-6">
+                    <h3 className="font-display text-lg font-medium">Visuals & Photos</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Update profile portrait, polaroid story, and modelling images. Upload directly
+                      from your device or pick from gallery.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab("visuals")}
+                      className="button-primary mt-4 text-xs"
+                    >
+                      Manage Visuals & Photos
+                    </button>
                   </div>
 
                   <div className="rounded-xl border border-border bg-card p-6">
-                    <h3 className="font-display text-lg font-medium">Recent Inquiries</h3>
+                    <h3 className="font-display text-lg font-medium">Vlogs & Videos</h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {inquiries.length > 0
-                        ? `You have ${inquiries.filter((i) => i.status === "new").length} unreviewed proposal(s).`
-                        : "No inquiries submitted yet."}
+                      Add, edit, or remove showcase videos. Upload new videos from device or select
+                      from attached files.
                     </p>
-                    <div className="mt-4">
-                      <button
-                        onClick={() => setActiveTab("inquiries")}
-                        className="button-secondary text-xs"
-                      >
-                        View All Inquiries
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setActiveTab("vlogs")}
+                      className="button-secondary mt-4 text-xs"
+                    >
+                      Manage Showcase Vlogs
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-card p-6">
+                    <h3 className="font-display text-lg font-medium">Social Links & Phone</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Manage your YouTube, Instagram, TikTok, Pinterest, WhatsApp number, and email.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab("socials")}
+                      className="button-secondary mt-4 text-xs"
+                    >
+                      Manage Social Links
+                    </button>
                   </div>
                 </div>
               </div>
@@ -696,11 +975,9 @@ function AdminDashboard() {
               <form onSubmit={handleSaveVisuals} className="space-y-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
                   <div>
-                    <h3 className="font-display text-xl font-medium">
-                      Portfolio Visuals & Content
-                    </h3>
+                    <h3 className="font-display text-xl font-medium">Portfolio Visuals & Photos</h3>
                     <p className="text-xs text-muted-foreground">
-                      Manage your profile portrait, polaroid, intro copy, and modelling pictures.
+                      Upload from your gallery/device, choose from presets, or provide URLs.
                     </p>
                   </div>
                   <button
@@ -709,7 +986,7 @@ function AdminDashboard() {
                     className="button-primary inline-flex items-center gap-2 text-xs"
                   >
                     <CheckCircle2 size={15} />
-                    <span>{visualsSaving ? "Publishing..." : "Save & Publish Visuals"}</span>
+                    <span>{visualsSaving ? "Publishing..." : "Publish All Visuals"}</span>
                   </button>
                 </div>
 
@@ -724,10 +1001,45 @@ function AdminDashboard() {
                     <div className="space-y-3 md:col-span-2 text-xs">
                       <div>
                         <label className="mb-1 block font-semibold text-warm">
-                          Profile / Hero Image URL *
+                          Profile / Hero Image *
                         </label>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <label className="button-primary text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-sm">
+                            <Upload size={13} />
+                            <span>
+                              {uploadingTarget === "hero"
+                                ? "Uploading Photo..."
+                                : "Upload from Gallery / Device"}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                  handleFileUpload(f, "hero", (url) =>
+                                    setPortfolioContent({ ...portfolioContent, heroImageUrl: url }),
+                                  );
+                                }
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openGalleryModal("image", (url) =>
+                                setPortfolioContent({ ...portfolioContent, heroImageUrl: url }),
+                              )
+                            }
+                            className="button-secondary text-xs inline-flex items-center gap-1.5"
+                          >
+                            <FolderOpen size={13} />
+                            <span>Pick from Media Library</span>
+                          </button>
+                        </div>
                         <input
-                          type="url"
+                          type="text"
                           required
                           value={portfolioContent.heroImageUrl}
                           onChange={(e) =>
@@ -736,7 +1048,7 @@ function AdminDashboard() {
                               heroImageUrl: e.target.value,
                             })
                           }
-                          placeholder="https://... direct image URL"
+                          placeholder="Image URL or uploaded path (/uploads/...)"
                           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
                         />
                       </div>
@@ -780,7 +1092,7 @@ function AdminDashboard() {
 
                     <div className="flex flex-col items-center justify-center rounded-xl border border-border/80 bg-background/50 p-3">
                       <p className="text-[11px] text-muted-foreground mb-2">Live Preview</p>
-                      <div className="h-44 w-36 overflow-hidden rounded-lg border border-border">
+                      <div className="h-44 w-36 overflow-hidden rounded-lg border border-border bg-black">
                         <img
                           src={portfolioContent.heroImageUrl}
                           alt="Hero Preview"
@@ -809,10 +1121,48 @@ function AdminDashboard() {
                     <div className="space-y-3 md:col-span-2 text-xs">
                       <div>
                         <label className="mb-1 block font-semibold text-warm">
-                          Polaroid Image URL *
+                          Polaroid Image *
                         </label>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <label className="button-primary text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-sm">
+                            <Upload size={13} />
+                            <span>
+                              {uploadingTarget === "polaroid"
+                                ? "Uploading Photo..."
+                                : "Upload from Gallery / Device"}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                  handleFileUpload(f, "polaroid", (url) =>
+                                    setPortfolioContent({
+                                      ...portfolioContent,
+                                      aboutImageUrl: url,
+                                    }),
+                                  );
+                                }
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openGalleryModal("image", (url) =>
+                                setPortfolioContent({ ...portfolioContent, aboutImageUrl: url }),
+                              )
+                            }
+                            className="button-secondary text-xs inline-flex items-center gap-1.5"
+                          >
+                            <FolderOpen size={13} />
+                            <span>Pick from Media Library</span>
+                          </button>
+                        </div>
                         <input
-                          type="url"
+                          type="text"
                           required
                           value={portfolioContent.aboutImageUrl}
                           onChange={(e) =>
@@ -821,7 +1171,7 @@ function AdminDashboard() {
                               aboutImageUrl: e.target.value,
                             })
                           }
-                          placeholder="https://... direct image URL"
+                          placeholder="Image URL or uploaded path (/uploads/...)"
                           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
                         />
                       </div>
@@ -850,7 +1200,10 @@ function AdminDashboard() {
                           type="text"
                           value={portfolioContent.aboutLead}
                           onChange={(e) =>
-                            setPortfolioContent({ ...portfolioContent, aboutLead: e.target.value })
+                            setPortfolioContent({
+                              ...portfolioContent,
+                              aboutLead: e.target.value,
+                            })
                           }
                           placeholder="e.g. I’m Faith Ekuase."
                           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
@@ -865,7 +1218,10 @@ function AdminDashboard() {
                           rows={4}
                           value={portfolioContent.aboutStory}
                           onChange={(e) =>
-                            setPortfolioContent({ ...portfolioContent, aboutStory: e.target.value })
+                            setPortfolioContent({
+                              ...portfolioContent,
+                              aboutStory: e.target.value,
+                            })
                           }
                           placeholder="Your story, philosophy, background..."
                           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
@@ -905,21 +1261,78 @@ function AdminDashboard() {
                         </span>
                       </h4>
                       <p className="text-xs text-muted-foreground">
-                        Portraits and fashion frames shown in the public modelling gallery.
+                        Portraits and fashion frames shown in the public gallery. Upload from your
+                        device or pick existing photos.
                       </p>
                     </div>
                   </div>
 
                   {/* Add New Picture Input */}
                   <div className="rounded-lg border border-border bg-background/70 p-4 text-xs space-y-3">
-                    <p className="font-semibold text-warm">Add New Picture to Gallery</p>
+                    <p className="font-semibold text-warm">Add Photo to Gallery</p>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="button-primary text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-sm">
+                        <Upload size={13} />
+                        <span>
+                          {uploadingTarget === "modelling"
+                            ? "Uploading Photo..."
+                            : "Upload from Gallery / Photos"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              handleFileUpload(f, "modelling", (url) => setNewModellingUrl(url));
+                            }
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openGalleryModal("image", (url) => setNewModellingUrl(url))}
+                        className="button-secondary text-xs inline-flex items-center gap-1.5"
+                      >
+                        <FolderOpen size={13} />
+                        <span>Choose from Media Library</span>
+                      </button>
+                    </div>
+
+                    {newModellingUrl && (
+                      <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-card p-2.5">
+                        <img
+                          src={newModellingUrl}
+                          alt="New upload preview"
+                          className="h-16 w-14 rounded object-cover border border-border"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-primary">
+                            Photo Selected & Ready
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {newModellingUrl}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewModellingUrl("")}
+                          className="text-[11px] text-red-400 hover:underline"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       <div className="sm:col-span-2">
                         <input
-                          type="url"
+                          type="text"
                           value={newModellingUrl}
                           onChange={(e) => setNewModellingUrl(e.target.value)}
-                          placeholder="Image URL (https://...)"
+                          placeholder="Or paste direct image URL (/uploads/...)"
                           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground focus:border-primary focus:outline-none"
                         />
                       </div>
@@ -928,7 +1341,7 @@ function AdminDashboard() {
                           type="text"
                           value={newModellingCaption}
                           onChange={(e) => setNewModellingCaption(e.target.value)}
-                          placeholder="Caption / Alt text"
+                          placeholder="Photo Caption (e.g. Portrait in purple dress)"
                           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground focus:border-primary focus:outline-none"
                         />
                       </div>
@@ -937,10 +1350,10 @@ function AdminDashboard() {
                       <button
                         type="button"
                         onClick={handleAddModellingImage}
-                        className="button-secondary text-xs inline-flex items-center gap-1.5"
+                        className="button-primary text-xs inline-flex items-center gap-1.5"
                       >
                         <Plus size={14} />
-                        <span>Add Picture to List</span>
+                        <span>Add Picture to Gallery</span>
                       </button>
                     </div>
                   </div>
@@ -977,14 +1390,306 @@ function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* Section 4: Social Links & Contact Channels (also available in dedicated tab) */}
+                <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-3">
+                    <div>
+                      <h4 className="font-display text-lg font-semibold flex items-center gap-2 text-primary">
+                        <Share2 size={18} />
+                        <span>Social Links & Contact Channels</span>
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Manage your social media channels, handles, and direct WhatsApp contact
+                        published across the website.
+                      </p>
+                    </div>
+                    <span className="text-[11px] rounded-full bg-primary/10 border border-primary/30 px-2.5 py-1 text-primary font-semibold">
+                      Live on Header, Elsewhere & Footer
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        YouTube Channel URL
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.youtube}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, youtube: e.target.value })
+                        }
+                        placeholder="https://youtube.com/@faith-ekuase"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        Instagram Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.instagram}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, instagram: e.target.value })
+                        }
+                        placeholder="https://www.instagram.com/faith_ekuase/"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        TikTok Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.tiktok}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, tiktok: e.target.value })
+                        }
+                        placeholder="https://www.tiktok.com/@.faithekuase"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        Pinterest Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.pinterest}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, pinterest: e.target.value })
+                        }
+                        placeholder="https://www.pinterest.com/faithekuase1/"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        Official Contact Email
+                      </label>
+                      <input
+                        type="email"
+                        value={socialsState.email}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, email: e.target.value })
+                        }
+                        placeholder="faithekuase1@gmail.com"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        Display WhatsApp Number
+                      </label>
+                      <input
+                        type="text"
+                        value={socialsState.whatsappNumber}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, whatsappNumber: e.target.value })
+                        }
+                        placeholder="+234 705 508 2561"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        WhatsApp Direct Chat Link
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.whatsappLink}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, whatsappLink: e.target.value })
+                        }
+                        placeholder="https://wa.me/2347055082561"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-4">
                   <button
                     type="submit"
                     disabled={visualsSaving}
+                    className="button-primary inline-flex items-center gap-2 text-xs py-3 px-8 shadow-md"
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>
+                      {visualsSaving ? "Publishing Changes..." : "Publish All Visuals & Socials"}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* TAB: SOCIAL LINKS & CONTACT DETAILS */}
+            {activeTab === "socials" && (
+              <form onSubmit={handleSaveSocials} className="space-y-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
+                  <div>
+                    <h3 className="font-display text-xl font-medium">
+                      Social Links & Contact Info
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Manage all handles, profile links, WhatsApp, and contact numbers across the
+                      website.
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={socialsSaving}
+                    className="button-primary inline-flex items-center gap-2 text-xs"
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>{socialsSaving ? "Saving..." : "Save Social Links"}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 text-xs">
+                  <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                    <h4 className="font-display text-base font-semibold flex items-center gap-2 text-warm">
+                      <Share2 size={16} />
+                      <span>Social Media Profiles</span>
+                    </h4>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        YouTube Channel URL
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.youtube}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, youtube: e.target.value })
+                        }
+                        placeholder="https://youtube.com/@faith-ekuase"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        Instagram Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.instagram}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, instagram: e.target.value })
+                        }
+                        placeholder="https://www.instagram.com/faith_ekuase/"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        TikTok Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.tiktok}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, tiktok: e.target.value })
+                        }
+                        placeholder="https://www.tiktok.com/@.faithekuase"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        Pinterest Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.pinterest}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, pinterest: e.target.value })
+                        }
+                        placeholder="https://www.pinterest.com/faithekuase1/"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                    <h4 className="font-display text-base font-semibold flex items-center gap-2 text-primary">
+                      <Mail size={16} />
+                      <span>Contact & Collaboration Channels</span>
+                    </h4>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        Official Contact Email
+                      </label>
+                      <input
+                        type="email"
+                        value={socialsState.email}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, email: e.target.value })
+                        }
+                        placeholder="faithekuase1@gmail.com"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        Display WhatsApp Number
+                      </label>
+                      <input
+                        type="text"
+                        value={socialsState.whatsappNumber}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, whatsappNumber: e.target.value })
+                        }
+                        placeholder="+234 705 508 2561"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block font-semibold text-muted-foreground">
+                        WhatsApp Direct Click Link
+                      </label>
+                      <input
+                        type="url"
+                        value={socialsState.whatsappLink}
+                        onChange={(e) =>
+                          setSocialsState({ ...socialsState, whatsappLink: e.target.value })
+                        }
+                        placeholder="https://wa.me/2347055082561"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="rounded-lg bg-background/50 p-4 border border-border/80">
+                      <p className="text-muted-foreground leading-relaxed">
+                        These links appear dynamically on your header, &quot;Elsewhere Online&quot;
+                        section, contact section, and footer navigation.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={socialsSaving}
                     className="button-primary inline-flex items-center gap-2 text-xs py-3 px-8"
                   >
                     <CheckCircle2 size={16} />
-                    <span>{visualsSaving ? "Publishing Changes..." : "Publish All Visuals"}</span>
+                    <span>{socialsSaving ? "Saving..." : "Save All Social Links"}</span>
                   </button>
                 </div>
               </form>
@@ -997,7 +1702,8 @@ function AdminDashboard() {
                   <div>
                     <h3 className="font-display text-xl font-medium">Showcase Vlogs</h3>
                     <p className="text-xs text-muted-foreground">
-                      Curate videos displayed on Faith's portfolio.
+                      Curate videos displayed on Faith's portfolio. Upload directly from your device
+                      or select attached videos.
                     </p>
                   </div>
                   <button
@@ -1052,7 +1758,7 @@ function AdminDashboard() {
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 text-primary hover:underline"
                           >
-                            <span>Open Link</span>
+                            <span>Open Media</span>
                             <ExternalLink size={12} />
                           </a>
                           <div className="flex items-center gap-2">
@@ -1356,16 +2062,90 @@ function AdminDashboard() {
 
               <div>
                 <label className="mb-1 block font-semibold text-muted-foreground">
-                  Video URL *
+                  Video Source *
                 </label>
-                <input
-                  type="url"
-                  required
-                  value={editingVlog.media_url || ""}
-                  onChange={(e) => setEditingVlog({ ...editingVlog, media_url: e.target.value })}
-                  placeholder="https://... direct video file or hosted stream"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
-                />
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <label className="button-primary text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-sm">
+                    <Upload size={13} />
+                    <span>
+                      {uploadingTarget === "vlog_video"
+                        ? "Uploading video..."
+                        : "Upload Video from Gallery / Device"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          handleFileUpload(f, "vlog_video", (url) =>
+                            setEditingVlog({ ...editingVlog, media_url: url }),
+                          );
+                        }
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openGalleryModal("video", (url) =>
+                        setEditingVlog({ ...editingVlog, media_url: url }),
+                      )
+                    }
+                    className="button-secondary text-xs inline-flex items-center gap-1.5"
+                  >
+                    <FolderOpen size={13} />
+                    <span>Select from Video Gallery</span>
+                  </button>
+                </div>
+
+                {editingVlog.media_url ? (
+                  <div className="rounded-xl border border-border/80 bg-background/80 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-primary flex items-center gap-1">
+                        <Play size={12} /> Video Attached & Ready
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingVlog({ ...editingVlog, media_url: "" })}
+                        className="text-[11px] text-muted-foreground hover:text-red-400"
+                      >
+                        Remove / Replace
+                      </button>
+                    </div>
+                    <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
+                      <video
+                        src={editingVlog.media_url}
+                        controls
+                        className="w-full h-full object-contain"
+                        preload="metadata"
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      Source: {editingVlog.media_url}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border/80 bg-background/40 p-4 text-center">
+                    <Video size={24} className="mx-auto text-muted-foreground/60 mb-1" />
+                    <p className="text-[11px] text-muted-foreground">
+                      No video chosen yet. Upload an MP4/MOV from your device gallery or pick from
+                      attached videos.
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    required
+                    value={editingVlog.media_url || ""}
+                    onChange={(e) => setEditingVlog({ ...editingVlog, media_url: e.target.value })}
+                    placeholder="Or paste direct video URL (/uploads/...)"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] text-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1398,6 +2178,178 @@ function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Gallery Selector Modal */}
+      {galleryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-display text-lg font-semibold flex items-center gap-2">
+                <FolderOpen size={18} className="text-primary" />
+                <span>
+                  {galleryPickerType === "video"
+                    ? "Select Video from Gallery"
+                    : "Select Image from Gallery"}
+                </span>
+              </h3>
+              <button
+                onClick={() => setGalleryModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick Upload from modal */}
+            <div className="rounded-lg border border-border/80 bg-background/60 p-3 flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                Or upload a new file from your device / gallery:
+              </span>
+              <label className="button-primary text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-sm">
+                <Upload size={13} />
+                <span>
+                  {uploadingTarget === "modal_upload" ? "Uploading..." : "Upload New File"}
+                </span>
+                <input
+                  type="file"
+                  accept={galleryPickerType === "video" ? "video/*" : "image/*"}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      handleFileUpload(f, "modal_upload", (url) => {
+                        if (gallerySelectCallback) {
+                          gallerySelectCallback(url);
+                        }
+                        setGalleryModalOpen(false);
+                      });
+                    }
+                  }}
+                />
+              </label>
+            </div>
+
+            {/* Grid of presets and uploaded items */}
+            <div className="max-h-[55vh] overflow-y-auto pr-1 space-y-5">
+              {/* User Uploaded Items */}
+              {localGallery.filter((item) => item.type === galleryPickerType).length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
+                    <Sparkles size={13} />
+                    <span>Your Uploaded Media (from Device Gallery)</span>
+                  </h4>
+                  {galleryPickerType === "video" ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {localGallery
+                        .filter((item) => item.type === "video")
+                        .map((vid) => (
+                          <div
+                            key={vid.id}
+                            onClick={() => {
+                              if (gallerySelectCallback) gallerySelectCallback(vid.url);
+                              setGalleryModalOpen(false);
+                            }}
+                            className="cursor-pointer rounded-xl border border-primary/40 bg-card p-2.5 transition hover:border-primary hover:bg-secondary/70 group"
+                          >
+                            <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+                              <video
+                                src={vid.url}
+                                className="w-full h-full object-cover"
+                                preload="metadata"
+                              />
+                            </div>
+                            <p className="mt-1.5 text-xs font-semibold text-foreground truncate">
+                              {vid.name}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground">
+                              Uploaded from device
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {localGallery
+                        .filter((item) => item.type === "image")
+                        .map((img) => (
+                          <div
+                            key={img.id}
+                            onClick={() => {
+                              if (gallerySelectCallback) gallerySelectCallback(img.url);
+                              setGalleryModalOpen(false);
+                            }}
+                            className="group cursor-pointer rounded-lg border border-primary/40 bg-card overflow-hidden transition hover:border-primary hover:ring-2 hover:ring-primary/30"
+                          >
+                            <img
+                              src={img.url}
+                              alt={img.name}
+                              className="aspect-[4/5] w-full object-cover group-hover:scale-105 transition"
+                              loading="lazy"
+                            />
+                            <p className="p-1.5 text-[10px] text-foreground font-medium truncate">
+                              {img.name}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Built-in Presets */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Curated Project Media Library
+                </h4>
+                {galleryPickerType === "video" ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {GALLERY_VIDEO_PRESETS.map((vid, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          if (gallerySelectCallback) gallerySelectCallback(vid.url);
+                          setGalleryModalOpen(false);
+                        }}
+                        className="cursor-pointer rounded-xl border border-border bg-secondary/50 p-3 transition hover:border-primary hover:bg-secondary"
+                      >
+                        <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+                          <video
+                            src={vid.url}
+                            className="w-full h-full object-cover"
+                            preload="metadata"
+                          />
+                        </div>
+                        <p className="mt-2 text-xs font-semibold text-foreground">{vid.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {GALLERY_IMAGE_PRESETS.map((img, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          if (gallerySelectCallback) gallerySelectCallback(img.url);
+                          setGalleryModalOpen(false);
+                        }}
+                        className="group cursor-pointer rounded-lg border border-border bg-secondary overflow-hidden transition hover:border-primary"
+                      >
+                        <img
+                          src={img.url}
+                          alt={img.name}
+                          className="aspect-[4/5] w-full object-cover group-hover:scale-105 transition"
+                          loading="lazy"
+                        />
+                        <p className="p-2 text-[10px] text-muted-foreground truncate">{img.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

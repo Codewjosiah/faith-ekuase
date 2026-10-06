@@ -667,7 +667,7 @@ function Index() {
             name="YouTube"
             text="Watch my vlogs and explore my latest videos."
             action="Watch on YouTube"
-            href="https://youtube.com/@faith-ekuase"
+            href={content.socialLinks?.youtube || "https://youtube.com/@faith-ekuase"}
           />
           <SocialRow
             number="02"
@@ -675,7 +675,7 @@ function Index() {
             name="Instagram"
             text="A closer look at my life, creative updates, and moments outside the vlog."
             action="Follow on Instagram"
-            href="https://www.instagram.com/faith_ekuase/"
+            href={content.socialLinks?.instagram || "https://www.instagram.com/faith_ekuase/"}
           />
           <SocialRow
             number="03"
@@ -683,7 +683,7 @@ function Index() {
             name="Pinterest"
             text="A collection of visual inspiration, ideas, and things I love."
             action="Visit Pinterest"
-            href="https://www.pinterest.com/faithekuase1/"
+            href={content.socialLinks?.pinterest || "https://www.pinterest.com/faithekuase1/"}
           />
           <SocialRow
             number="04"
@@ -691,7 +691,7 @@ function Index() {
             name="TikTok"
             text="Short-form moments, lifestyle inspiration, and everyday experiences."
             action="Follow on TikTok"
-            href="https://www.tiktok.com/@.faithekuase"
+            href={content.socialLinks?.tiktok || "https://www.tiktok.com/@.faithekuase"}
           />
         </div>
       </section>
@@ -846,17 +846,31 @@ function Index() {
         </Reveal>
 
         <Reveal className="contact-actions mt-10" delay={150}>
-          <a href={EMAIL} className="button-secondary">
+          <a
+            href={`mailto:${content.socialLinks?.email || "faithekuase1@gmail.com"}`}
+            className="button-secondary"
+          >
             Email me directly <Mail size={16} />
           </a>
-          <a href={WHATSAPP} target="_blank" rel="noreferrer" className="button-secondary">
+          <a
+            href={content.socialLinks?.whatsappLink || "https://wa.me/2347055082561"}
+            target="_blank"
+            rel="noreferrer"
+            className="button-secondary"
+          >
             WhatsApp me <MessageCircle size={16} />
           </a>
         </Reveal>
         <Reveal className="contact-details">
-          <a href={EMAIL}>faithekuase1@gmail.com</a>
-          <a href={WHATSAPP} target="_blank" rel="noreferrer">
-            +234 705 508 2561
+          <a href={`mailto:${content.socialLinks?.email || "faithekuase1@gmail.com"}`}>
+            {content.socialLinks?.email || "faithekuase1@gmail.com"}
+          </a>
+          <a
+            href={content.socialLinks?.whatsappLink || "https://wa.me/2347055082561"}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {content.socialLinks?.whatsappNumber || "+234 705 508 2561"}
           </a>
           <p>
             For collaboration enquiries, please include a brief description of your project and the
@@ -897,7 +911,20 @@ function Index() {
           <p>Life, through my lens.</p>
         </div>
         <nav aria-label="Footer navigation">
-          {footerLinks.map(([label, href]) => (
+          {[
+            ["YouTube", content.socialLinks?.youtube || "https://youtube.com/@faith-ekuase"],
+            [
+              "Instagram",
+              content.socialLinks?.instagram || "https://www.instagram.com/faith_ekuase/",
+            ],
+            [
+              "Pinterest",
+              content.socialLinks?.pinterest || "https://www.pinterest.com/faithekuase1/",
+            ],
+            ["TikTok", content.socialLinks?.tiktok || "https://www.tiktok.com/@.faithekuase"],
+            ["Email", `mailto:${content.socialLinks?.email || "faithekuase1@gmail.com"}`],
+            ["WhatsApp", content.socialLinks?.whatsappLink || "https://wa.me/2347055082561"],
+          ].map(([label, href]) => (
             <a
               key={label}
               href={href}
