@@ -1,17 +1,31 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  CheckCircle2,
   Instagram,
   Mail,
   Menu,
   MessageCircle,
   Play,
   Quote,
+  Send,
+  Shield,
   X,
   Youtube,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  subscribeVlogs,
+  seedInitialVlogsIfEmpty,
+  submitInquiry,
+  submitMediaKitRequest,
+  type VlogItem,
+  type Inquiry,
+  subscribePortfolioContent,
+  DEFAULT_PORTFOLIO_CONTENT,
+  type PortfolioContent,
+} from "../lib/db-service";
 
 const heroAsset = {
   url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/channels4_profile-hcyvINGNgSvvHYQRzwyX2wxZXLHErM.jpg",
@@ -177,6 +191,106 @@ function Index() {
   const [scrolled, setScrolled] = useState(false);
   const [videos, setVideos] = useState<Vlog[]>(attachedVlogs);
   const [showAllVideos, setShowAllVideos] = useState(false);
+  const [content, setContent] = useState<PortfolioContent>(DEFAULT_PORTFOLIO_CONTENT);
+
+  // Inquiry form state
+  const [inquiryForm, setInquiryForm] = useState({
+    name: "",
+    email: "",
+    companyOrBrand: "",
+    projectType: "sponsored_vlog" as NonNullable<Inquiry["projectType"]>,
+    timeline: "",
+    message: "",
+  });
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState(false);
+  const [inquiryError, setInquiryError] = useState<string | null>(null);
+
+  // Media kit modal state
+  const [mediaKitModalOpen, setMediaKitModalOpen] = useState(false);
+  const [mediaKitForm, setMediaKitForm] = useState({ name: "", email: "", company: "", notes: "" });
+  const [mediaKitSubmitting, setMediaKitSubmitting] = useState(false);
+  const [mediaKitSuccess, setMediaKitSuccess] = useState(false);
+
+  useEffect(() => {
+    // Seed initial vlogs if collection is empty
+    seedInitialVlogsIfEmpty();
+
+    // Subscribe to live vlogs from Firestore
+    const unsub = subscribeVlogs(
+      (items) => {
+        if (items.length > 0) {
+          setVideos(items);
+        }
+      },
+      (err) => console.warn("Live vlogs sync fallback to default:", err),
+    );
+
+    // Subscribe to live portfolio content
+    const unsubContent = subscribePortfolioContent(
+      (data) => setContent(data),
+      (err) => console.warn("Portfolio content sync fallback to default:", err),
+    );
+
+    return () => {
+      unsub();
+      unsubContent();
+    };
+  }, []);
+
+  const handleInquirySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inquiryForm.name || !inquiryForm.email || !inquiryForm.message) {
+      setInquiryError("Please fill in your name, email, and message.");
+      return;
+    }
+
+    setInquirySubmitting(true);
+    setInquiryError(null);
+    try {
+      await submitInquiry({
+        name: inquiryForm.name,
+        email: inquiryForm.email,
+        companyOrBrand: inquiryForm.companyOrBrand,
+        projectType: inquiryForm.projectType,
+        timeline: inquiryForm.timeline,
+        message: inquiryForm.message,
+      });
+      setInquirySuccess(true);
+      setInquiryForm({
+        name: "",
+        email: "",
+        companyOrBrand: "",
+        projectType: "sponsored_vlog",
+        timeline: "",
+        message: "",
+      });
+    } catch (err: unknown) {
+      setInquiryError(
+        err instanceof Error
+          ? err.message
+          : "Failed to send proposal. Please try again or email Faith directly.",
+      );
+    } finally {
+      setInquirySubmitting(false);
+    }
+  };
+
+  const handleMediaKitSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mediaKitForm.name || !mediaKitForm.email) return;
+
+    setMediaKitSubmitting(true);
+    try {
+      await submitMediaKitRequest(mediaKitForm);
+      setMediaKitSuccess(true);
+      setMediaKitForm({ name: "", email: "", company: "", notes: "" });
+    } catch (err: unknown) {
+      console.error("Media kit request failed:", err);
+    } finally {
+      setMediaKitSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 28);
@@ -266,15 +380,8 @@ function Index() {
             <br />
             my lens.
           </h1>
-          <div className="hero-body hero-enter hero-enter-delay-2">
-            <p>
-              I’m Faith Ekuase, a vlogger and content creator who creates visually engaging content
-              around lifestyle, fashion, beauty, and everyday experiences.
-            </p>
-            <p>
-              Come along as I share my world, explore new experiences, and create videos that feel
-              real, personal, and worth watching.
-            </p>
+          <div className="hero-body hero-enter hero-enter-delay-2 whitespace-pre-line">
+            <p>{content.heroSubtitle}</p>
           </div>
           <div className="hero-actions hero-enter hero-enter-delay-2">
             <a href="#vlogs" className="button-primary">
@@ -290,13 +397,13 @@ function Index() {
         </div>
         <div className="hero-portrait-wrap hero-enter">
           <img
-            src={heroAsset.url}
-            alt="Faith Ekuase with copper braids, looking thoughtfully to the side"
+            src={content.heroImageUrl}
+            alt="Faith Ekuase"
             className="hero-portrait"
             fetchPriority="high"
           />
           <div className="portrait-caption">
-            <span>Based in Benin City</span>
+            <span>{content.heroCaption}</span>
           </div>
         </div>
       </section>
@@ -359,30 +466,20 @@ function Index() {
         <Reveal className="polaroid-wrap">
           <figure className="polaroid">
             <img
-              src={aboutAsset.url}
-              alt="Faith Ekuase introducing herself in a colourful scrapbook-style portrait"
+              src={content.aboutImageUrl}
+              alt="Faith Ekuase introducing herself in a colourful portrait"
               loading="lazy"
             />
-            <figcaption>hello, it’s Faith ♡</figcaption>
+            <figcaption>{content.aboutPolaroidCaption}</figcaption>
           </figure>
         </Reveal>
         <Reveal className="about-copy" delay={120}>
           <p className="eyebrow">Behind the camera</p>
           <h2>The person behind the vlogs.</h2>
-          <p className="lead">I’m Faith Ekuase.</p>
-          <p>
-            A Physiotherapy student, a vlogger, and someone who enjoys finding stories in the
-            everyday.
-          </p>
-          <p>
-            I love capturing experiences, sharing my perspective, and bringing people along for the
-            moments that make life interesting. My faith is part of that journey too—quietly shaping
-            the way I see things, the values I carry, and the gratitude I have for where I am.
-          </p>
-          <p>
-            Between school, creating, and everything in between, I’m learning, growing, and
-            discovering what I want to say through my videos.
-          </p>
+          <p className="lead">{content.aboutLead}</p>
+          <div className="space-y-4 whitespace-pre-line text-muted-foreground leading-relaxed">
+            <p>{content.aboutStory}</p>
+          </div>
           <p className="closing-line">Still becoming. Still creating. Still grateful.</p>
         </Reveal>
       </section>
@@ -401,13 +498,13 @@ function Index() {
           </p>
         </Reveal>
         <div className="modelling-grid">
-          {modellingImages.map(([src, alt], index) => (
+          {content.modellingImages.map((img, index) => (
             <Reveal
-              key={src}
-              className={`modelling-card modelling-card-${index + 1}`}
+              key={`${img.url}-${index}`}
+              className={`modelling-card modelling-card-${(index % 14) + 1}`}
               delay={(index % 4) * 70}
             >
-              <img src={src} alt={alt} loading="lazy" />
+              <img src={img.url} alt={img.caption || "Modelling portrait"} loading="lazy" />
             </Reveal>
           ))}
         </div>
@@ -543,9 +640,17 @@ function Index() {
         <Reveal className="media-kit-copy" delay={100}>
           <p>Want to know more about my audience, platforms, and collaboration opportunities?</p>
           <p>Request my media kit for the latest available creator information.</p>
-          <a href={MEDIA_KIT} className="button-primary">
-            Request media kit <Mail size={16} />
-          </a>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setMediaKitModalOpen(true)}
+              className="button-primary cursor-pointer"
+            >
+              Request media kit <Mail size={16} />
+            </button>
+            <a href={MEDIA_KIT} className="button-secondary">
+              Direct email <ArrowUpRight size={14} />
+            </a>
+          </div>
         </Reveal>
       </section>
 
@@ -604,9 +709,145 @@ function Index() {
             your campaign idea, timeline, and what you’d like to create.
           </p>
         </Reveal>
-        <Reveal className="contact-actions" delay={100}>
-          <a href={EMAIL} className="button-primary">
-            Email me <Mail size={16} />
+
+        {/* Live Collaboration Form */}
+        <Reveal className="mt-8 rounded-2xl border border-border bg-card p-6 sm:p-8" delay={100}>
+          <h3 className="font-display text-xl sm:text-2xl font-normal">
+            Send a Collaboration Proposal
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Directly enters Faith's priority review queue in the admin portal.
+          </p>
+
+          {inquirySuccess ? (
+            <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-6 text-center">
+              <CheckCircle2 size={36} className="mx-auto text-emerald-400" />
+              <h4 className="mt-3 font-display text-xl text-emerald-200">Proposal Submitted!</h4>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Thank you for reaching out. Your proposal has been securely logged in Faith's
+                creator dashboard. Faith will review your brief and get back to you shortly.
+              </p>
+              <button onClick={() => setInquirySuccess(false)} className="button-secondary mt-5">
+                Send another message
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleInquirySubmit} className="mt-6 space-y-4">
+              {inquiryError && (
+                <div className="rounded-lg border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-200">
+                  {inquiryError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-warm">Your Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={inquiryForm.name}
+                    onChange={(e) => setInquiryForm({ ...inquiryForm, name: e.target.value })}
+                    placeholder="e.g. Sarah Jenkins"
+                    className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-warm">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={inquiryForm.email}
+                    onChange={(e) => setInquiryForm({ ...inquiryForm, email: e.target.value })}
+                    placeholder="e.g. sarah@brand.com"
+                    className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-warm">
+                    Company / Brand
+                  </label>
+                  <input
+                    type="text"
+                    value={inquiryForm.companyOrBrand}
+                    onChange={(e) =>
+                      setInquiryForm({ ...inquiryForm, companyOrBrand: e.target.value })
+                    }
+                    placeholder="e.g. Glow Skincare"
+                    className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-warm">
+                    Collaboration Type
+                  </label>
+                  <select
+                    value={inquiryForm.projectType}
+                    onChange={(e) =>
+                      setInquiryForm({
+                        ...inquiryForm,
+                        projectType: e.target.value as NonNullable<Inquiry["projectType"]>,
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
+                  >
+                    <option value="sponsored_vlog">Sponsored Vlog</option>
+                    <option value="brand_ambassadorship">Brand Ambassadorship</option>
+                    <option value="modelling_campaign">Modelling Campaign</option>
+                    <option value="event_appearance">Event Appearance</option>
+                    <option value="other">Other Partnership</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-warm">
+                  Campaign Timeline / Preferred Dates
+                </label>
+                <input
+                  type="text"
+                  value={inquiryForm.timeline}
+                  onChange={(e) => setInquiryForm({ ...inquiryForm, timeline: e.target.value })}
+                  placeholder="e.g. Next month, Q3 launch, flexible"
+                  className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-warm">
+                  Campaign Brief & Project Details *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={inquiryForm.message}
+                  onChange={(e) => setInquiryForm({ ...inquiryForm, message: e.target.value })}
+                  placeholder="Describe your brand, campaign goals, key deliverables, and deliverables..."
+                  className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={inquirySubmitting}
+                  className="button-primary inline-flex items-center gap-2"
+                >
+                  <Send size={15} />
+                  <span>{inquirySubmitting ? "Submitting..." : "Send Proposal"}</span>
+                </button>
+              </div>
+            </form>
+          )}
+        </Reveal>
+
+        <Reveal className="contact-actions mt-10" delay={150}>
+          <a href={EMAIL} className="button-secondary">
+            Email me directly <Mail size={16} />
           </a>
           <a href={WHATSAPP} target="_blank" rel="noreferrer" className="button-secondary">
             WhatsApp me <MessageCircle size={16} />
@@ -669,6 +910,120 @@ function Index() {
         </nav>
         <p className="copyright">© 2026 Faith Ekuase. All rights reserved.</p>
       </footer>
+
+      {/* Interactive Media Kit Modal */}
+      {mediaKitModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-display text-xl">Request Official Media Kit</h3>
+              <button
+                onClick={() => {
+                  setMediaKitModalOpen(false);
+                  setMediaKitSuccess(false);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {mediaKitSuccess ? (
+              <div className="py-8 text-center">
+                <CheckCircle2 size={36} className="mx-auto text-emerald-400" />
+                <h4 className="mt-3 font-display text-lg text-emerald-200">Request Received!</h4>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Thank you for your interest! Your request has been logged. Faith's management team
+                  will send over the current creator deck and rate card shortly.
+                </p>
+                <button
+                  onClick={() => {
+                    setMediaKitModalOpen(false);
+                    setMediaKitSuccess(false);
+                  }}
+                  className="button-primary mt-6 text-xs"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleMediaKitSubmit} className="mt-4 space-y-3.5 text-xs">
+                <p className="text-muted-foreground">
+                  Receive Faith's comprehensive media kit including audience analytics, past brand
+                  highlights, and current rates.
+                </p>
+
+                <div>
+                  <label className="mb-1 block font-semibold text-warm">Your Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={mediaKitForm.name}
+                    onChange={(e) => setMediaKitForm({ ...mediaKitForm, name: e.target.value })}
+                    placeholder="e.g. Alex Morgan"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-semibold text-warm">Business Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={mediaKitForm.email}
+                    onChange={(e) => setMediaKitForm({ ...mediaKitForm, email: e.target.value })}
+                    placeholder="e.g. alex@agency.com"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-semibold text-warm">
+                    Company / Agency Name
+                  </label>
+                  <input
+                    type="text"
+                    value={mediaKitForm.company}
+                    onChange={(e) => setMediaKitForm({ ...mediaKitForm, company: e.target.value })}
+                    placeholder="e.g. Creative Media Group"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-semibold text-warm">
+                    Campaign Notes / Objectives
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={mediaKitForm.notes}
+                    onChange={(e) => setMediaKitForm({ ...mediaKitForm, notes: e.target.value })}
+                    placeholder="Any specific campaign timeline or deliverables in mind?"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setMediaKitModalOpen(false)}
+                    className="button-secondary text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={mediaKitSubmitting}
+                    className="button-primary text-xs"
+                  >
+                    {mediaKitSubmitting ? "Submitting..." : "Send Request"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

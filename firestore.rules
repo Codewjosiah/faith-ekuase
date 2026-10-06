@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all for all documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Hardened Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admin Verification: user has record in /admins/{uid} or is signed in
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // --- Entity Validation Functions ---
+    function isValidInquiry(data) {
+      return data.keys().hasAll(['name', 'email', 'message', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['name', 'email', 'companyOrBrand', 'projectType', 'timeline', 'message', 'status', 'createdAt']) &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 150 &&
+        (!('companyOrBrand' in data) || (data.companyOrBrand is string && data.companyOrBrand.size() <= 100)) &&
+        (!('projectType' in data) || (data.projectType in ['sponsored_vlog', 'brand_ambassadorship', 'modelling_campaign', 'event_appearance', 'other'])) &&
+        (!('timeline' in data) || (data.timeline is string && data.timeline.size() <= 100)) &&
+        data.message is string && data.message.size() >= 10 && data.message.size() <= 2000 &&
+        data.status in ['new', 'in_review', 'contacted', 'closed'] &&
+        data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidVlog(data) {
+      return data.keys().hasAll(['title', 'category', 'description', 'media_url', 'sort_order', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['title', 'category', 'description', 'media_url', 'sort_order', 'createdAt', 'updatedAt']) &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 150 &&
+        data.category is string && data.category.size() >= 2 && data.category.size() <= 80 &&
+        data.description is string && data.description.size() >= 5 && data.description.size() <= 500 &&
+        data.media_url is string && data.media_url.size() >= 10 && data.media_url.size() <= 500 &&
+        data.sort_order is number &&
+        data.createdAt is string && data.createdAt.size() <= 40 &&
+        data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    function isValidMediaKitRequest(data) {
+      return data.keys().hasAll(['name', 'email', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['name', 'email', 'company', 'notes', 'status', 'createdAt']) &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 150 &&
+        (!('company' in data) || (data.company is string && data.company.size() <= 100)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+        data.status in ['pending', 'sent', 'archived'] &&
+        data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) &&
+        data.keys().hasOnly(['email', 'role', 'createdAt']) &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 150 &&
+        data.role in ['admin', 'super_admin'] &&
+        data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidPortfolioContent(data) {
+      return data.keys().hasAll(['heroImageUrl', 'aboutImageUrl', 'updatedAt']) &&
+        data.keys().hasOnly(['heroImageUrl', 'heroCaption', 'heroSubtitle', 'aboutImageUrl', 'aboutPolaroidCaption', 'aboutLead', 'aboutStory', 'modellingImagesJson', 'updatedAt']) &&
+        data.heroImageUrl is string && data.heroImageUrl.size() <= 500 &&
+        data.aboutImageUrl is string && data.aboutImageUrl.size() <= 500 &&
+        (!('heroCaption' in data) || (data.heroCaption is string && data.heroCaption.size() <= 100)) &&
+        (!('heroSubtitle' in data) || (data.heroSubtitle is string && data.heroSubtitle.size() <= 1000)) &&
+        (!('aboutPolaroidCaption' in data) || (data.aboutPolaroidCaption is string && data.aboutPolaroidCaption.size() <= 150)) &&
+        (!('aboutLead' in data) || (data.aboutLead is string && data.aboutLead.size() <= 500)) &&
+        (!('aboutStory' in data) || (data.aboutStory is string && data.aboutStory.size() <= 3000)) &&
+        (!('modellingImagesJson' in data) || (data.modellingImagesJson is string && data.modellingImagesJson.size() <= 15000)) &&
+        data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    // --- Collection Match Rules ---
+
+    // Inquiries: public can submit with status 'new'; only admin can read, triage, update, or delete
+    match /inquiries/{inquiryId} {
+      allow create: if isValidId(inquiryId) && isValidInquiry(incoming()) && incoming().status == 'new';
+      allow read: if isAdmin();
+      allow update: if isValidId(inquiryId) && isAdmin() && isValidInquiry(incoming());
+      allow delete: if isValidId(inquiryId) && isAdmin();
+    }
+
+    // Vlogs: public can read; only admin can create, update, delete
+    match /vlogs/{vlogId} {
+      allow read: if true;
+      allow create: if isValidId(vlogId) && isAdmin() && isValidVlog(incoming());
+      allow update: if isValidId(vlogId) && isAdmin() && isValidVlog(incoming());
+      allow delete: if isValidId(vlogId) && isAdmin();
+    }
+
+    // Media Kit Requests: public can submit requests with status 'pending'; only admin can read and update
+    match /media_kit_requests/{requestId} {
+      allow create: if isValidId(requestId) && isValidMediaKitRequest(incoming()) && incoming().status == 'pending';
+      allow read: if isAdmin();
+      allow update: if isValidId(requestId) && isAdmin() && isValidMediaKitRequest(incoming());
+      allow delete: if isValidId(requestId) && isAdmin();
+    }
+
+    // Admins: authenticated user can initialize their admin document on sign-up; admin can manage
+    match /admins/{adminUid} {
+      allow read: if isSignedIn() && (request.auth.uid == adminUid || isAdmin());
+      allow create: if isSignedIn() && isValidId(adminUid) && request.auth.uid == adminUid && isValidAdmin(incoming());
+      allow update, delete: if isValidId(adminUid) && isAdmin();
+    }
+
+    // Portfolio Content: hero, polaroid, and modelling gallery management
+    match /portfolio_content/{contentId} {
+      allow read: if true;
+      allow create, update: if isValidId(contentId) && isAdmin() && isValidPortfolioContent(incoming());
+      allow delete: if isValidId(contentId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,251 @@
+{
+  "entities": {
+    "Inquiry": {
+      "title": "Inquiry",
+      "description": "Collaboration or contact proposal from a brand or client",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name of the sender",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Contact email address",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 150
+        },
+        "companyOrBrand": {
+          "type": "string",
+          "description": "Name of brand, company or agency",
+          "maxLength": 100
+        },
+        "projectType": {
+          "type": "string",
+          "description": "Category of partnership or inquiry",
+          "enum": [
+            "sponsored_vlog",
+            "brand_ambassadorship",
+            "modelling_campaign",
+            "event_appearance",
+            "other"
+          ]
+        },
+        "timeline": {
+          "type": "string",
+          "description": "Estimated timeline or campaign date",
+          "maxLength": 100
+        },
+        "message": {
+          "type": "string",
+          "description": "Details about the project and expectations",
+          "minLength": 10,
+          "maxLength": 2000
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the inquiry workflow",
+          "enum": ["new", "in_review", "contacted", "closed"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when inquiry was submitted"
+        }
+      },
+      "required": ["name", "email", "message", "status", "createdAt"]
+    },
+    "Vlog": {
+      "title": "Vlog",
+      "description": "Curated video or vlog highlight displayed in Faith's portfolio",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the vlog",
+          "minLength": 2,
+          "maxLength": 150
+        },
+        "category": {
+          "type": "string",
+          "description": "Category or theme of the vlog",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "description": "Short synopsis or description",
+          "minLength": 5,
+          "maxLength": 500
+        },
+        "media_url": {
+          "type": "string",
+          "description": "Direct URL or stream link to video",
+          "minLength": 10,
+          "maxLength": 500
+        },
+        "sort_order": {
+          "type": "number",
+          "description": "Display order index"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when added"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when last modified"
+        }
+      },
+      "required": [
+        "title",
+        "category",
+        "description",
+        "media_url",
+        "sort_order",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MediaKitRequest": {
+      "title": "MediaKitRequest",
+      "description": "Direct request for Faith Ekuase's media kit and rate card",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Requester name",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Requester contact email",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 150
+        },
+        "company": {
+          "type": "string",
+          "description": "Company or agency name",
+          "maxLength": 100
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes or message",
+          "maxLength": 500
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the media kit request",
+          "enum": ["pending", "sent", "archived"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when request was made"
+        }
+      },
+      "required": ["name", "email", "status", "createdAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrator document allowing access to management dashboard",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Admin email address",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 150
+        },
+        "role": {
+          "type": "string",
+          "description": "Administrative authority role",
+          "enum": ["admin", "super_admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when role was assigned"
+        }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "PortfolioContent": {
+      "title": "PortfolioContent",
+      "description": "Editable visuals and media content for Faith Ekuase portfolio",
+      "type": "object",
+      "properties": {
+        "heroImageUrl": {
+          "type": "string",
+          "description": "Profile/hero portrait image URL",
+          "maxLength": 500
+        },
+        "heroCaption": {
+          "type": "string",
+          "description": "Caption displayed under hero portrait",
+          "maxLength": 100
+        },
+        "heroSubtitle": {
+          "type": "string",
+          "description": "Hero introduction paragraph",
+          "maxLength": 1000
+        },
+        "aboutImageUrl": {
+          "type": "string",
+          "description": "Polaroid portrait image URL",
+          "maxLength": 500
+        },
+        "aboutPolaroidCaption": {
+          "type": "string",
+          "description": "Handwritten caption underneath polaroid",
+          "maxLength": 150
+        },
+        "aboutLead": {
+          "type": "string",
+          "description": "Lead quote or line in about section",
+          "maxLength": 500
+        },
+        "aboutStory": {
+          "type": "string",
+          "description": "Full about narrative copy",
+          "maxLength": 3000
+        },
+        "modellingImagesJson": {
+          "type": "string",
+          "description": "JSON serialized list of modelling gallery images and captions",
+          "maxLength": 15000
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when content was last updated"
+        }
+      },
+      "required": ["heroImageUrl", "aboutImageUrl", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/inquiries/{inquiryId}": {
+      "schema": "Inquiry",
+      "description": "Incoming client and brand collaboration inquiries"
+    },
+    "/vlogs/{vlogId}": {
+      "schema": "Vlog",
+      "description": "Portfolio video entries curated for public showcase"
+    },
+    "/media_kit_requests/{requestId}": {
+      "schema": "MediaKitRequest",
+      "description": "Media kit lead requests submitted via portfolio"
+    },
+    "/admins/{adminUid}": {
+      "schema": "Admin",
+      "description": "Trusted administrators allowed to manage portfolio content and inquiries"
+    },
+    "/portfolio_content/{contentId}": {
+      "schema": "PortfolioContent",
+      "description": "Hero, polaroid, and modelling gallery content managed from admin"
+    }
+  }
+}
