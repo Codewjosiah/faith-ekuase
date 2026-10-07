@@ -693,6 +693,20 @@ function Index() {
             action="Follow on TikTok"
             href={content.socialLinks?.tiktok || "https://www.tiktok.com/@.faithekuase"}
           />
+          {content.socialLinks?.customLinks &&
+            content.socialLinks.customLinks.map((custom, idx) => (
+              <SocialRow
+                key={custom.id || idx}
+                number={String(5 + idx).padStart(2, "0")}
+                icon={
+                  <span className="pinterest-mark">{custom.platform.charAt(0).toUpperCase()}</span>
+                }
+                name={custom.platform || custom.title}
+                text={custom.description || `Connect with me on ${custom.platform}.`}
+                action={custom.actionText || `Visit ${custom.platform}`}
+                href={custom.url}
+              />
+            ))}
         </div>
       </section>
 
@@ -922,6 +936,7 @@ function Index() {
               content.socialLinks?.pinterest || "https://www.pinterest.com/faithekuase1/",
             ],
             ["TikTok", content.socialLinks?.tiktok || "https://www.tiktok.com/@.faithekuase"],
+            ...(content.socialLinks?.customLinks?.map((c) => [c.title || c.platform, c.url]) || []),
             ["Email", `mailto:${content.socialLinks?.email || "faithekuase1@gmail.com"}`],
             ["WhatsApp", content.socialLinks?.whatsappLink || "https://wa.me/2347055082561"],
           ].map(([label, href]) => (

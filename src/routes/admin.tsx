@@ -1,7 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { auth, signInAdmin, signUpAdmin, logoutUser, hasAnyRegisteredAdmin } from "../lib/firebase";
+import {
+  auth,
+  signInAdmin,
+  signUpAdmin,
+  logoutUser,
+  hasAnyRegisteredAdmin,
+  changeAdminPassword,
+} from "../lib/firebase";
 import {
   subscribeInquiries,
   updateInquiryStatus,
@@ -26,17 +33,23 @@ import {
   type GalleryMediaItem,
   type PortfolioContent,
   type SocialLinks,
+  type CustomSocialLink,
 } from "../lib/db-service";
 import {
   ArrowLeft,
   BarChart3,
   CheckCircle2,
+  Edit2,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileText,
   Filter,
   FolderOpen,
   Globe,
   Image,
+  KeyRound,
+  Lock,
   LogIn,
   LogOut,
   Mail,
@@ -132,7 +145,7 @@ function AdminDashboard() {
 
   // Dashboard tab
   const [activeTab, setActiveTab] = useState<
-    "overview" | "visuals" | "vlogs" | "socials" | "inquiries" | "mediakit"
+    "overview" | "visuals" | "vlogs" | "socials" | "inquiries" | "mediakit" | "security"
   >("overview");
 
   // Inquiries state
@@ -157,6 +170,26 @@ function AdminDashboard() {
   const [socialsSaving, setSocialsSaving] = useState(false);
   const [newModellingUrl, setNewModellingUrl] = useState("");
   const [newModellingCaption, setNewModellingCaption] = useState("");
+
+  // Custom Social Link Modal state
+  const [socialModalOpen, setSocialModalOpen] = useState(false);
+  const [editingSocialLink, setEditingSocialLink] = useState<CustomSocialLink | null>(null);
+  const [socialFormPlatform, setSocialFormPlatform] = useState("X / Twitter");
+  const [socialFormTitle, setSocialFormTitle] = useState("");
+  const [socialFormUrl, setSocialFormUrl] = useState("");
+  const [socialFormActionText, setSocialFormActionText] = useState("");
+  const [socialFormDescription, setSocialFormDescription] = useState("");
+
+  // Password Security state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   // Gallery Picker Modal
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
@@ -360,6 +393,108 @@ function AdminDashboard() {
     }
   };
 
+  // Custom Social Link Handlers
+  const openAddSocialModal = () => {
+    setEditingSocialLink(null);
+    setSocialFormPlatform("X / Twitter");
+    setSocialFormTitle("");
+    setSocialFormUrl("");
+    setSocialFormActionText("Follow on X");
+    setSocialFormDescription("");
+    setSocialModalOpen(true);
+  };
+
+  const openEditSocialModal = (link: CustomSocialLink) => {
+    setEditingSocialLink(link);
+    setSocialFormPlatform(link.platform);
+    setSocialFormTitle(link.title);
+    setSocialFormUrl(link.url);
+    setSocialFormActionText(link.actionText || "");
+    setSocialFormDescription(link.description || "");
+    setSocialModalOpen(true);
+  };
+
+  const handleSaveSocialLinkModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!socialFormUrl.trim()) {
+      showToast("Please enter a valid URL for the social channel", "error");
+      return;
+    }
+
+    const platformName = socialFormPlatform.trim() || "Social Link";
+    const title = socialFormTitle.trim() || platformName;
+    const action = socialFormActionText.trim() || `Visit ${platformName}`;
+    const currentCustom = socialsState.customLinks || [];
+
+    if (editingSocialLink) {
+      const updated = currentCustom.map((item) =>
+        item.id === editingSocialLink.id
+          ? {
+              ...item,
+              platform: platformName,
+              title,
+              url: socialFormUrl.trim(),
+              actionText: action,
+              description: socialFormDescription.trim(),
+            }
+          : item,
+      );
+      setSocialsState({ ...socialsState, customLinks: updated });
+      showToast("Social link updated. Remember to click 'Save Social Links' to publish live.");
+    } else {
+      const newLink: CustomSocialLink = {
+        id: `soc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        platform: platformName,
+        title,
+        url: socialFormUrl.trim(),
+        actionText: action,
+        description: socialFormDescription.trim(),
+      };
+      setSocialsState({ ...socialsState, customLinks: [...currentCustom, newLink] });
+      showToast("Social channel added. Remember to click 'Save Social Links' to publish live.");
+    }
+
+    setSocialModalOpen(false);
+  };
+
+  const handleDeleteCustomSocialLink = (id: string) => {
+    const currentCustom = socialsState.customLinks || [];
+    const updated = currentCustom.filter((item) => item.id !== id);
+    setSocialsState({ ...socialsState, customLinks: updated });
+    showToast("Social link removed. Click 'Save Social Links' to publish live.");
+  };
+
+  // Password Security Change Handler
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New password and confirmation password do not match.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      await changeAdminPassword(currentPassword, newPassword);
+      setPasswordSuccess("Password updated successfully! You can now use your new password.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      showToast("Password changed successfully!");
+    } catch (err: unknown) {
+      setPasswordError(err instanceof Error ? err.message : "Failed to change password");
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   const handleAddModellingImage = () => {
     if (!newModellingUrl.trim()) {
       showToast("Please enter or upload an image", "error");
@@ -497,8 +632,21 @@ function AdminDashboard() {
 
         <div className="flex items-center gap-3">
           {user && (
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">{user.email}</span>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="hidden sm:inline text-xs text-muted-foreground">{user.email}</span>
+              <button
+                type="button"
+                onClick={() => setActiveTab("security")}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
+                  activeTab === "security"
+                    ? "border-primary bg-primary text-primary-foreground font-semibold shadow-sm"
+                    : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+                title="Change admin account password"
+              >
+                <KeyRound size={13} />
+                <span>Change Password</span>
+              </button>
               <button
                 onClick={handleLogout}
                 className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
@@ -703,6 +851,18 @@ function AdminDashboard() {
                 >
                   📄 Media Kit ({mediaKitRequests.length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("security")}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition flex items-center gap-1.5 ${
+                    activeTab === "security"
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-secondary/80 text-muted-foreground hover:border-primary hover:text-foreground"
+                  }`}
+                >
+                  <KeyRound size={12} />
+                  <span>🔑 Password & Security</span>
+                </button>
               </div>
             </div>
 
@@ -781,6 +941,17 @@ function AdminDashboard() {
               >
                 <FileText size={14} />
                 <span>Media Kit Requests ({mediaKitRequests.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("security")}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition ${
+                  activeTab === "security"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <KeyRound size={14} />
+                <span>Security & Password</span>
               </button>
             </div>
 
@@ -1514,6 +1685,85 @@ function AdminDashboard() {
                       />
                     </div>
                   </div>
+
+                  {/* Additional & Custom Social Channels */}
+                  <div className="mt-4 pt-4 border-t border-border/80 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <h5 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                          <Share2 size={13} className="text-primary" />
+                          <span>
+                            Additional Custom Social Channels (
+                            {(socialsState.customLinks || []).length})
+                          </span>
+                        </h5>
+                        <p className="text-[11px] text-muted-foreground">
+                          Add links for X/Twitter, Threads, LinkedIn, Podcasts, etc.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openAddSocialModal}
+                        className="button-primary text-xs inline-flex items-center gap-1.5 self-start sm:self-auto shadow-sm"
+                      >
+                        <Plus size={13} />
+                        <span>Add Social Link</span>
+                      </button>
+                    </div>
+
+                    {socialsState.customLinks && socialsState.customLinks.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                        {socialsState.customLinks.map((link) => (
+                          <div
+                            key={link.id}
+                            className="rounded-lg border border-border bg-secondary/50 p-2.5 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="rounded bg-primary/20 text-primary text-[10px] font-semibold px-1.5 py-0.5">
+                                {link.platform}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditSocialModal(link)}
+                                  className="p-1 rounded text-muted-foreground hover:text-foreground"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={11} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCustomSocialLink(link.id)}
+                                  className="p-1 rounded text-muted-foreground hover:text-red-400"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-xs font-medium text-foreground truncate">
+                              {link.title}
+                            </p>
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] text-primary hover:underline truncate block"
+                            >
+                              {link.url}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-border/80 bg-background/40 p-3 text-center">
+                        <p className="text-[11px] text-muted-foreground">
+                          No extra social channels added. Click <strong>Add Social Link</strong>{" "}
+                          above to add X, Threads, LinkedIn, etc.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-4">
@@ -1680,6 +1930,111 @@ function AdminDashboard() {
                       </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Additional & Custom Social Channels (Full Width) */}
+                <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
+                    <div>
+                      <h4 className="font-display text-base font-semibold flex items-center gap-2 text-foreground">
+                        <Share2 size={16} className="text-primary" />
+                        <span>
+                          Additional Social Channels & Custom Platforms (
+                          {(socialsState.customLinks || []).length})
+                        </span>
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Feature more channels such as X / Twitter, Threads, LinkedIn, Spotify,
+                        Podcasts, or your personal store.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={openAddSocialModal}
+                      className="button-primary text-xs inline-flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Plus size={14} />
+                      <span>Add Social Link</span>
+                    </button>
+                  </div>
+
+                  {socialsState.customLinks && socialsState.customLinks.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {socialsState.customLinks.map((link) => (
+                        <div
+                          key={link.id}
+                          className="rounded-xl border border-border bg-secondary/40 p-4 space-y-2 hover:border-primary/50 transition group"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="rounded-md bg-primary/15 text-primary text-[10px] font-semibold px-2 py-0.5">
+                              {link.platform}
+                            </span>
+                            <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                              <button
+                                type="button"
+                                onClick={() => openEditSocialModal(link)}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary"
+                                title="Edit channel"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCustomSocialLink(link.id)}
+                                className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-950/40"
+                                title="Delete channel"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-xs text-foreground truncate">
+                              {link.title}
+                            </p>
+                            {link.description && (
+                              <p className="text-[11px] text-muted-foreground line-clamp-1">
+                                {link.description}
+                              </p>
+                            )}
+                          </div>
+                          <div className="pt-1 flex items-center justify-between text-[11px]">
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary hover:underline truncate inline-flex items-center gap-1 max-w-[75%]"
+                            >
+                              <span className="truncate">{link.url}</span>
+                              <ExternalLink size={10} className="shrink-0" />
+                            </a>
+                            <span className="text-[10px] text-muted-foreground">
+                              {link.actionText}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border/80 bg-background/40 p-8 text-center space-y-2">
+                      <Share2 size={28} className="mx-auto text-muted-foreground/60" />
+                      <p className="text-xs font-medium text-foreground">
+                        No additional social channels added yet
+                      </p>
+                      <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+                        Add links for X / Twitter, Threads, LinkedIn, Podcasts, or your own store to
+                        showcase them in the "Follow along" and footer sections.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={openAddSocialModal}
+                        className="button-secondary text-xs inline-flex items-center gap-1.5 mt-2"
+                      >
+                        <Plus size={13} />
+                        <span>Add Your First Extra Link</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end pt-2">
@@ -1995,6 +2350,197 @@ function AdminDashboard() {
                     </table>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* TAB: SECURITY & CHANGE PASSWORD */}
+            {activeTab === "security" && (
+              <div className="space-y-6">
+                <div className="border-b border-border pb-4">
+                  <h3 className="font-display text-xl font-medium flex items-center gap-2">
+                    <KeyRound size={20} className="text-primary" />
+                    <span>Admin Security & Password</span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Manage your credentials, update your admin password, and maintain portal access
+                    security.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Password Change Form */}
+                  <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
+                    <div className="flex items-center justify-between border-b border-border pb-3">
+                      <div>
+                        <h4 className="font-display text-base font-semibold flex items-center gap-2 text-foreground">
+                          <Lock size={16} className="text-primary" />
+                          <span>Change Admin Password</span>
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Enter your current password and your new chosen password below.
+                        </p>
+                      </div>
+                    </div>
+
+                    {passwordError && (
+                      <div className="rounded-lg border border-red-500/40 bg-red-950/40 p-3.5 text-xs text-red-200">
+                        {passwordError}
+                      </div>
+                    )}
+
+                    {passwordSuccess && (
+                      <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/40 p-3.5 text-xs text-emerald-200 flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                        <span>{passwordSuccess}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
+                      <div>
+                        <label className="mb-1 block font-semibold text-muted-foreground">
+                          Current Password *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showCurrentPass ? "text" : "password"}
+                            required
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="Enter existing password"
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPass(!showCurrentPass)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showCurrentPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="mb-1 block font-semibold text-muted-foreground">
+                            New Password *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showNewPass ? "text" : "password"}
+                              required
+                              minLength={6}
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Minimum 6 characters"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPass(!showNewPass)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                              {showNewPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block font-semibold text-muted-foreground">
+                            Confirm New Password *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showConfirmPass ? "text" : "password"}
+                              required
+                              minLength={6}
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder="Re-enter new password"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPass(!showConfirmPass)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                              {showConfirmPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground">
+                          Passwords must be at least 6 characters.
+                        </span>
+                        <button
+                          type="submit"
+                          disabled={passwordSaving}
+                          className="button-primary inline-flex items-center gap-2 text-xs py-2.5 px-6 shadow-sm"
+                        >
+                          {passwordSaving ? (
+                            <>
+                              <RefreshCw size={14} className="animate-spin" />
+                              <span>Updating Password...</span>
+                            </>
+                          ) : (
+                            <>
+                              <KeyRound size={14} />
+                              <span>Update Password</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Account Information & Security Guidelines */}
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-border bg-card p-5 space-y-3 text-xs">
+                      <h4 className="font-semibold text-foreground flex items-center gap-2">
+                        <ShieldCheck size={16} className="text-emerald-400" />
+                        <span>Account Details</span>
+                      </h4>
+                      <div className="space-y-2 pt-1 border-t border-border">
+                        <div>
+                          <span className="text-muted-foreground text-[11px] block">
+                            Admin Email:
+                          </span>
+                          <span className="font-medium text-foreground">{user?.email}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground text-[11px] block">Role:</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-semibold">
+                            Primary Creator Administrator
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground text-[11px] block">
+                            Authentication Provider:
+                          </span>
+                          <span className="text-muted-foreground">
+                            Email & Password (Firebase Auth)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-border/80 bg-background/50 p-5 space-y-2 text-xs">
+                      <h5 className="font-semibold text-warm">Security Best Practices</h5>
+                      <ul className="list-disc pl-4 space-y-1 text-muted-foreground text-[11px]">
+                        <li>Use a unique password that isn't shared with other websites.</li>
+                        <li>
+                          Always sign out when managing your portfolio from public or shared
+                          devices.
+                        </li>
+                        <li>
+                          All public edits, photo uploads, and vlog updates require verified admin
+                          authorization.
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -2350,6 +2896,137 @@ function AdminDashboard() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Custom Social Link Modal */}
+      {socialModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-display text-lg font-semibold flex items-center gap-2">
+                <Share2 size={18} className="text-primary" />
+                <span>{editingSocialLink ? "Edit Social Channel" : "Add New Social Channel"}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSocialModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSocialLinkModal} className="space-y-4 text-xs">
+              <div>
+                <label className="mb-1 block font-semibold text-muted-foreground">
+                  Platform Preset *
+                </label>
+                <select
+                  value={socialFormPlatform}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSocialFormPlatform(val);
+                    if (!editingSocialLink) {
+                      if (val === "X / Twitter") setSocialFormActionText("Follow on X");
+                      else if (val === "Threads") setSocialFormActionText("Follow on Threads");
+                      else if (val === "LinkedIn") setSocialFormActionText("Connect on LinkedIn");
+                      else if (val === "Facebook") setSocialFormActionText("Follow on Facebook");
+                      else if (val === "Spotify") setSocialFormActionText("Listen on Spotify");
+                      else if (val === "Apple Podcasts")
+                        setSocialFormActionText("Listen on Apple Podcasts");
+                      else if (val === "Snapchat") setSocialFormActionText("Add on Snapchat");
+                      else if (val === "Telegram") setSocialFormActionText("Join Telegram Channel");
+                      else if (val === "Medium / Blog") setSocialFormActionText("Read on Medium");
+                      else if (val === "Personal Website") setSocialFormActionText("Visit Website");
+                      else setSocialFormActionText(`Visit ${val}`);
+                    }
+                  }}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                >
+                  <option value="X / Twitter">X / Twitter</option>
+                  <option value="Threads">Threads</option>
+                  <option value="LinkedIn">LinkedIn</option>
+                  <option value="Facebook">Facebook</option>
+                  <option value="Spotify">Spotify (Podcast / Playlist)</option>
+                  <option value="Apple Podcasts">Apple Podcasts</option>
+                  <option value="Snapchat">Snapchat</option>
+                  <option value="Telegram">Telegram Channel / Group</option>
+                  <option value="Medium / Blog">Medium / Creator Blog</option>
+                  <option value="Personal Website">Personal Website / Store</option>
+                  <option value="Other">Other / Custom Platform</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block font-semibold text-muted-foreground">
+                    Channel / Handle Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={socialFormTitle}
+                    onChange={(e) => setSocialFormTitle(e.target.value)}
+                    placeholder="e.g. @faith_ekuase or Faith Ekuase"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block font-semibold text-muted-foreground">
+                    Action Button Text
+                  </label>
+                  <input
+                    type="text"
+                    value={socialFormActionText}
+                    onChange={(e) => setSocialFormActionText(e.target.value)}
+                    placeholder="e.g. Follow on X, Listen, Read"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-muted-foreground">
+                  Channel URL *
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={socialFormUrl}
+                  onChange={(e) => setSocialFormUrl(e.target.value)}
+                  placeholder="https://x.com/faith_ekuase"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block font-semibold text-muted-foreground">
+                  Short Tagline or Description (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={socialFormDescription}
+                  onChange={(e) => setSocialFormDescription(e.target.value)}
+                  placeholder="e.g. Daily thoughts, quick updates, and conversations."
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setSocialModalOpen(false)}
+                  className="button-secondary"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="button-primary">
+                  {editingSocialLink ? "Update Channel" : "Add Channel"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

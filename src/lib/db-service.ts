@@ -379,6 +379,15 @@ export async function verifyCurrentUserIsAdmin(): Promise<boolean> {
 
 // ==================== PORTFOLIO CONTENT & IMAGES ====================
 
+export interface CustomSocialLink {
+  id: string;
+  platform: string;
+  title: string;
+  url: string;
+  description?: string;
+  actionText?: string;
+}
+
 export interface SocialLinks {
   youtube: string;
   instagram: string;
@@ -387,6 +396,7 @@ export interface SocialLinks {
   email: string;
   whatsappNumber: string;
   whatsappLink: string;
+  customLinks?: CustomSocialLink[];
 }
 
 export const DEFAULT_SOCIAL_LINKS: SocialLinks = {
@@ -397,6 +407,7 @@ export const DEFAULT_SOCIAL_LINKS: SocialLinks = {
   email: "faithekuase1@gmail.com",
   whatsappNumber: "+234 705 508 2561",
   whatsappLink: "https://wa.me/2347055082561",
+  customLinks: [],
 };
 
 export interface PortfolioContent {
@@ -610,10 +621,15 @@ export function subscribePortfolioContent(
           }
         }
 
-        let parsedSocials: SocialLinks = DEFAULT_SOCIAL_LINKS;
+        let parsedSocials: SocialLinks = { ...DEFAULT_SOCIAL_LINKS };
         if (raw.socialLinksJson) {
           try {
-            parsedSocials = { ...DEFAULT_SOCIAL_LINKS, ...JSON.parse(raw.socialLinksJson) };
+            const parsed = JSON.parse(raw.socialLinksJson);
+            parsedSocials = {
+              ...DEFAULT_SOCIAL_LINKS,
+              ...parsed,
+              customLinks: Array.isArray(parsed.customLinks) ? parsed.customLinks : [],
+            };
           } catch {
             // fallback
           }
@@ -665,7 +681,7 @@ export async function savePortfolioContent(content: Partial<PortfolioContent>): 
     ).slice(0, 50000),
     socialLinksJson: JSON.stringify(
       content.socialLinks || DEFAULT_PORTFOLIO_CONTENT.socialLinks,
-    ).slice(0, 5000),
+    ).slice(0, 14000),
     updatedAt: now,
   };
 

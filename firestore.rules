@@ -85,7 +85,7 @@ service cloud.firestore {
         (!('aboutLead' in data) || (data.aboutLead is string && data.aboutLead.size() <= 500)) &&
         (!('aboutStory' in data) || (data.aboutStory is string && data.aboutStory.size() <= 3000)) &&
         (!('modellingImagesJson' in data) || (data.modellingImagesJson is string && data.modellingImagesJson.size() <= 50000)) &&
-        (!('socialLinksJson' in data) || (data.socialLinksJson is string && data.socialLinksJson.size() <= 5000)) &&
+        (!('socialLinksJson' in data) || (data.socialLinksJson is string && data.socialLinksJson.size() <= 15000)) &&
         data.updatedAt is string && data.updatedAt.size() <= 40;
     }
 

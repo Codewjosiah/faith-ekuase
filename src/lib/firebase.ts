@@ -5,6 +5,9 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   type User,
 } from "firebase/auth";
 import {
@@ -119,6 +122,47 @@ export async function logoutUser() {
   } catch (error) {
     console.error("Logout failed:", error);
     throw error;
+  }
+}
+
+export async function changeAdminPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const user = auth.currentUser;
+  if (!user || !user.email) {
+    throw new Error("No authenticated session found. Please sign in again.");
+  }
+
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error("New password must be at least 6 characters long.");
+  }
+
+  // 1. Re-authenticate to ensure fresh credential and prevent auth/requires-recent-login
+  if (currentPassword) {
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+    } catch (reauthErr: unknown) {
+      const err = reauthErr as { code?: string; message?: string };
+      if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        throw new Error(
+          "The current password you entered is incorrect. Please double-check and try again.",
+        );
+      }
+      throw new Error(err.message || "Authentication verification failed.");
+    }
+  }
+
+  // 2. Perform password update
+  try {
+    await updatePassword(user, newPassword);
+  } catch (updateErr: unknown) {
+    const err = updateErr as { code?: string; message?: string };
+    if (err.code === "auth/requires-recent-login") {
+      throw new Error("For security, please enter your current password to confirm this change.");
+    }
+    throw new Error(err.message || "Failed to update password.");
   }
 }
 
