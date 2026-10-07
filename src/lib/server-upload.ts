@@ -1,11 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+// Vercel functions cannot write inside the deployed /var/task bundle. Use the
+// ephemeral /tmp directory there, while keeping local uploads in public/uploads.
+const UPLOAD_DIR = process.env.VERCEL
+  ? path.join("/tmp", "faith-ekuase-uploads")
+  : path.join(process.cwd(), "public", "uploads");
 
-// Ensure upload directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+async function ensureUploadDirectory() {
+  await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
 }
 
 const MIME_MAP: Record<string, string> = {
@@ -78,6 +81,7 @@ export async function handleUploadRequest(request: Request): Promise<Response> {
     const safeFilename = `${cleanBase}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}${ext}`;
     const filePath = path.join(UPLOAD_DIR, safeFilename);
 
+    await ensureUploadDirectory();
     await fs.promises.writeFile(filePath, buffer);
 
     const publicUrl = `/uploads/${safeFilename}`;
