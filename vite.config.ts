@@ -9,6 +9,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export default defineConfig({
+  // Vercel needs Nitro's Vercel adapter rather than the Cloudflare default.
+  nitro: { preset: "vercel" },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
