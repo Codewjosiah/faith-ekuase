@@ -38,8 +38,10 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
 function isH3SwallowedErrorBody(body: string): boolean {
   try {
-    const payload = JSON.parse(body) as { unhandled?: unknown; message?: unknown };
-    return payload.unhandled === true && payload.message === "HTTPError";
+    const payload = JSON.parse(body) as { unhandled?: unknown };
+    // Nitro's production serializer omits the HTTPError message for some
+    // Vercel runtime failures, but keeps the unhandled marker.
+    return payload.unhandled === true;
   } catch {
     return false;
   }
