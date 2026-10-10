@@ -2,14 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowDownRight,
   ArrowUpRight,
-  CheckCircle2,
   Instagram,
   Mail,
   Menu,
   MessageCircle,
   Play,
   Quote,
-  Send,
   Shield,
   X,
   Youtube,
@@ -18,10 +16,8 @@ import { useEffect, useState } from "react";
 import {
   subscribeVlogs,
   seedInitialVlogsIfEmpty,
-  submitInquiry,
   submitMediaKitRequest,
   type VlogItem,
-  type Inquiry,
   subscribePortfolioContent,
   DEFAULT_PORTFOLIO_CONTENT,
   type PortfolioContent,
@@ -193,19 +189,6 @@ function Index() {
   const [showAllVideos, setShowAllVideos] = useState(false);
   const [content, setContent] = useState<PortfolioContent>(DEFAULT_PORTFOLIO_CONTENT);
 
-  // Inquiry form state
-  const [inquiryForm, setInquiryForm] = useState({
-    name: "",
-    email: "",
-    companyOrBrand: "",
-    projectType: "sponsored_vlog" as NonNullable<Inquiry["projectType"]>,
-    timeline: "",
-    message: "",
-  });
-  const [inquirySubmitting, setInquirySubmitting] = useState(false);
-  const [inquirySuccess, setInquirySuccess] = useState(false);
-  const [inquiryError, setInquiryError] = useState<string | null>(null);
-
   // Media kit modal state
   const [mediaKitModalOpen, setMediaKitModalOpen] = useState(false);
   const [mediaKitForm, setMediaKitForm] = useState({ name: "", email: "", company: "", notes: "" });
@@ -237,44 +220,6 @@ function Index() {
       unsubContent();
     };
   }, []);
-
-  const handleInquirySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inquiryForm.name || !inquiryForm.email || !inquiryForm.message) {
-      setInquiryError("Please fill in your name, email, and message.");
-      return;
-    }
-
-    setInquirySubmitting(true);
-    setInquiryError(null);
-    try {
-      await submitInquiry({
-        name: inquiryForm.name,
-        email: inquiryForm.email,
-        companyOrBrand: inquiryForm.companyOrBrand,
-        projectType: inquiryForm.projectType,
-        timeline: inquiryForm.timeline,
-        message: inquiryForm.message,
-      });
-      setInquirySuccess(true);
-      setInquiryForm({
-        name: "",
-        email: "",
-        companyOrBrand: "",
-        projectType: "sponsored_vlog",
-        timeline: "",
-        message: "",
-      });
-    } catch (err: unknown) {
-      setInquiryError(
-        err instanceof Error
-          ? err.message
-          : "Failed to send proposal. Please try again or email Faith directly.",
-      );
-    } finally {
-      setInquirySubmitting(false);
-    }
-  };
 
   const handleMediaKitSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -724,139 +669,21 @@ function Index() {
           </p>
         </Reveal>
 
-        {/* Live Collaboration Form */}
         <Reveal className="mt-8 rounded-2xl border border-border bg-card p-6 sm:p-8" delay={100}>
-          <h3 className="font-display text-xl sm:text-2xl font-normal">
-            Send a Collaboration Proposal
+          <p className="eyebrow">Ready when you are</p>
+          <h3 className="mt-2 font-display text-xl font-normal sm:text-2xl">
+            Tell Faith about your idea.
           </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Directly enters Faith's priority review queue in the admin portal.
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            Email Faith directly with your campaign idea, timeline, budget, and the best way to
+            reach you. A draft will be prepared for you automatically.
           </p>
-
-          {inquirySuccess ? (
-            <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-6 text-center">
-              <CheckCircle2 size={36} className="mx-auto text-emerald-400" />
-              <h4 className="mt-3 font-display text-xl text-emerald-200">Proposal Submitted!</h4>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Thank you for reaching out. Your proposal has been securely logged in Faith's
-                creator dashboard. Faith will review your brief and get back to you shortly.
-              </p>
-              <button onClick={() => setInquirySuccess(false)} className="button-secondary mt-5">
-                Send another message
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleInquirySubmit} className="mt-6 space-y-4">
-              {inquiryError && (
-                <div className="rounded-lg border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-200">
-                  {inquiryError}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-warm">Your Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={inquiryForm.name}
-                    onChange={(e) => setInquiryForm({ ...inquiryForm, name: e.target.value })}
-                    placeholder="e.g. Sarah Jenkins"
-                    className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-warm">
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={inquiryForm.email}
-                    onChange={(e) => setInquiryForm({ ...inquiryForm, email: e.target.value })}
-                    placeholder="e.g. sarah@brand.com"
-                    className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-warm">
-                    Company / Brand
-                  </label>
-                  <input
-                    type="text"
-                    value={inquiryForm.companyOrBrand}
-                    onChange={(e) =>
-                      setInquiryForm({ ...inquiryForm, companyOrBrand: e.target.value })
-                    }
-                    placeholder="e.g. Glow Skincare"
-                    className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-warm">
-                    Collaboration Type
-                  </label>
-                  <select
-                    value={inquiryForm.projectType}
-                    onChange={(e) =>
-                      setInquiryForm({
-                        ...inquiryForm,
-                        projectType: e.target.value as NonNullable<Inquiry["projectType"]>,
-                      })
-                    }
-                    className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
-                  >
-                    <option value="sponsored_vlog">Sponsored Vlog</option>
-                    <option value="brand_ambassadorship">Brand Ambassadorship</option>
-                    <option value="modelling_campaign">Modelling Campaign</option>
-                    <option value="event_appearance">Event Appearance</option>
-                    <option value="other">Other Partnership</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-warm">
-                  Campaign Timeline / Preferred Dates
-                </label>
-                <input
-                  type="text"
-                  value={inquiryForm.timeline}
-                  onChange={(e) => setInquiryForm({ ...inquiryForm, timeline: e.target.value })}
-                  placeholder="e.g. Next month, Q3 launch, flexible"
-                  className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-warm">
-                  Campaign Brief & Project Details *
-                </label>
-                <textarea
-                  rows={4}
-                  required
-                  value={inquiryForm.message}
-                  onChange={(e) => setInquiryForm({ ...inquiryForm, message: e.target.value })}
-                  placeholder="Describe your brand, campaign goals, key deliverables, and deliverables..."
-                  className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={inquirySubmitting}
-                  className="button-primary inline-flex items-center gap-2"
-                >
-                  <Send size={15} />
-                  <span>{inquirySubmitting ? "Submitting..." : "Send Proposal"}</span>
-                </button>
-              </div>
-            </form>
-          )}
+          <a
+            href={`mailto:${content.socialLinks?.email || "faithekuase1@gmail.com"}?subject=${encodeURIComponent("Collaboration with Faith Ekuase")}&body=${encodeURIComponent("Hi Faith,\n\nI would love to discuss a collaboration with you.\n\nBrand / Company: \nProject or campaign idea: \nPreferred timeline: \nBudget: \nBest way to reach me: \n\nThank you!")}`}
+            className="button-primary mt-6 inline-flex items-center gap-2"
+          >
+            Email a collaboration brief <Mail size={16} />
+          </a>
         </Reveal>
 
         <Reveal className="contact-actions mt-10" delay={150}>
