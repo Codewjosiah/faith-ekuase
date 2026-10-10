@@ -521,8 +521,12 @@ function AdminDashboard() {
   // Vlog Handlers
   const handleSaveVlog = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingVlog?.title || !editingVlog?.category || !editingVlog?.media_url) {
-      showToast("Please fill in required fields (title, category, and video)", "error");
+    const title = editingVlog?.title?.trim();
+    const category = editingVlog?.category?.trim();
+    const mediaUrl = editingVlog?.media_url?.trim();
+
+    if (!title || !category || !mediaUrl) {
+      showToast("Please fill in the title, category, and video", "error");
       return;
     }
 
@@ -530,10 +534,10 @@ function AdminDashboard() {
     try {
       await saveVlog({
         id: editingVlog.id,
-        title: editingVlog.title,
-        category: editingVlog.category,
-        description: editingVlog.description || "",
-        media_url: editingVlog.media_url,
+        title,
+        category,
+        description: editingVlog.description?.trim() || "",
+        media_url: mediaUrl,
         sort_order: Number(editingVlog.sort_order ?? vlogs.length + 1),
       });
       showToast(editingVlog.id ? "Vlog updated" : "New vlog added to portfolio");
@@ -1542,14 +1546,15 @@ function AdminDashboard() {
                           className="aspect-[4/5] w-full object-cover"
                           loading="lazy"
                         />
-                        <div className="absolute inset-0 flex flex-col justify-between bg-black/60 p-2 opacity-0 transition group-hover:opacity-100">
+                        <div className="absolute inset-0 flex flex-col justify-between bg-black/60 p-2 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
                           <button
                             type="button"
                             onClick={() => handleRemoveModellingImage(idx)}
-                            className="self-end rounded bg-red-950/80 p-1 text-red-300 hover:bg-red-900"
+                            className="self-end rounded bg-red-950/90 p-1.5 text-red-200 shadow-sm hover:bg-red-900"
                             title="Remove picture"
+                            aria-label={`Remove ${img.caption}`}
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={14} />
                           </button>
                           <p className="text-[10px] text-white/90 line-clamp-2">{img.caption}</p>
                         </div>
@@ -2695,13 +2700,12 @@ function AdminDashboard() {
               </div>
 
               <div>
-                <label className="mb-1 block font-semibold text-muted-foreground">
-                  Description *
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={editingVlog.description || ""}
+                  <label className="mb-1 block font-semibold text-muted-foreground">
+                    Description <span className="font-normal text-muted-foreground/70">(optional)</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editingVlog.description || ""}
                   onChange={(e) => setEditingVlog({ ...editingVlog, description: e.target.value })}
                   placeholder="Short engaging description for viewers..."
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
