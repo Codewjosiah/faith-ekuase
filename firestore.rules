@@ -38,7 +38,7 @@ service cloud.firestore {
         (!('companyOrBrand' in data) || (data.companyOrBrand is string && data.companyOrBrand.size() <= 100)) &&
         (!('projectType' in data) || (data.projectType in ['sponsored_vlog', 'brand_ambassadorship', 'modelling_campaign', 'event_appearance', 'other'])) &&
         (!('timeline' in data) || (data.timeline is string && data.timeline.size() <= 100)) &&
-        data.message is string && data.message.size() >= 10 && data.message.size() <= 2000 &&
+        data.message is string && data.message.size() >= 2 && data.message.size() <= 2000 &&
         data.status in ['new', 'in_review', 'contacted', 'closed'] &&
         data.createdAt is string && data.createdAt.size() <= 40;
     }
